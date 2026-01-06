@@ -1,0 +1,108 @@
+# 外挂大脑系统 - 开发文档
+
+## 项目完成状态
+
+✅ **第一阶段（MVP核心功能）已完成**
+
+### 已实现功能清单
+
+#### 1. 项目架构 ✅
+- [x] Vue 3 + Vite 前端框架
+- [x] Express 后端服务
+- [x] SQLite 本地数据库
+- [x] Pinia 状态管理
+- [x] Vue Router 路由管理
+
+#### 2. 数据库设计 ✅
+- [x] contents 表（内容主表）
+- [x] tags 表（标签表）
+- [x] content_tags 表（内容-标签关联表）
+- [x] annotations 表（批注表）
+- [x] access_logs 表（访问记录表）
+
+#### 3. 后端API ✅
+- [x] GET /api/contents - 获取内容列表（支持筛选）
+- [x] GET /api/contents/:id - 获取单个内容详情
+- [x] POST /api/contents - 创建新内容
+- [x] PUT /api/contents/:id - 更新内容
+- [x] DELETE /api/contents/:id - 删除内容
+- [x] POST /api/contents/:id/favorite - 切换收藏状态
+- [x] POST /api/contents/:id/access - 记录访问日志
+- [x] GET /api/tags - 获取所有标签
+- [x] POST /api/tags - 创建标签
+- [x] GET /api/stats - 获取统计信息
+
+#### 4. 前端页面 ✅
+- [x] 首页（内容列表）
+- [x] 内容详情页
+- [x] 内容编辑/创建页
+
+#### 5. 核心功能 ✅
+- [x] 多类型内容管理（随笔、文章、音视频、书籍）
+- [x] 标签系统
+- [x] 评分系统（1-5星）
+- [x] 收藏功能
+- [x] 全文搜索
+- [x] 访问统计
+
+## 快速启动
+
+### Windows 系统
+双击运行 `start.bat`
+
+### Linux/Mac 系统
+```bash
+chmod +x start.sh
+./start.sh
+```
+
+### 手动启动
+
+**终端1 - 后端服务**
+```bash
+npm run server
+```
+
+**终端2 - 前端开发**
+```bash
+npm run dev
+```
+
+然后访问 http://localhost:5173
+
+## 技术栈
+
+- **前端**: Vue 3 + Vite + Pinia + Vue Router
+- **后端**: Node.js + Express
+- **数据库**: SQLite3
+- **样式**: 原生CSS
+
+## 目录结构
+
+```
+second-brain/
+├── data/           # 数据存储
+├── server/         # 后端服务
+├── src/            # 前端源码
+│   ├── views/     # 页面组件
+│   ├── stores/    # 状态管理
+│   ├── router/    # 路由配置
+│   └── utils/     # 工具函数
+├── start.bat       # Windows启动脚本
+├── start.sh        # Linux/Mac启动脚本
+└── README.md       # 项目说明
+```
+
+## 常见问题
+
+### Q: 如何备份数据？
+A: 复制 `data/brain.db` 文件到安全位置即可。
+
+### Q: 如何修改端口？
+A: 
+- 后端：修改 `server/index.js` 中的 `PORT` 变量
+- 前端：修改 `vite.config.js` 中的 `server.port`
+
+## 许可证
+
+MIT License
