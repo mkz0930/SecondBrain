@@ -1,62 +1,71 @@
 @echo off
 chcp 65001 >nul
 echo ====================================
-echo 外挂大脑系统启动脚本
+echo Second Brain System Startup
 echo ====================================
 echo.
 
-REM 检查并设置Node.js版本
+REM Check and set Node.js version
 where nvm >nul 2>nul
 if %ERRORLEVEL% EQU 0 (
     if exist ".nvmrc" (
-        echo 检测到 .nvmrc 文件，正在切换 Node 版本...
-        call nvm use 20.19.6
+        echo Detected .nvmrc file, switching Node version...
+        echo Y | call nvm use 20.19.6 >nul 2>nul
+        echo Node version switched to 20.19.6
     )
 )
 
-REM 检查Node.js是否安装
+REM Check if Node.js is installed
 where node >nul 2>nul
 if %ERRORLEVEL% NEQ 0 (
-    echo 错误: 未检测到 Node.js
-    echo 请先安装 Node.js ^(https://nodejs.org/^)
+    echo Error: Node.js not detected
+    echo Please install Node.js (https://nodejs.org/)
     pause
     exit /b 1
 )
 
-REM 检查npm是否安装
+REM Check if npm is installed
 where npm >nul 2>nul
 if %ERRORLEVEL% NEQ 0 (
-    echo 错误: 未检测到 npm
+    echo Error: npm not detected
     pause
     exit /b 1
 )
 
-REM 检查依赖是否已安装
+REM Check if dependencies are installed
 if not exist "node_modules\" (
-    echo 首次运行，正在安装依赖...
+    echo First run, installing dependencies...
     call npm install
     if %ERRORLEVEL% NEQ 0 (
-        echo 依赖安装失败
+        echo Dependency installation failed
         pause
         exit /b 1
     )
 )
 
-echo 正在启动后端服务...
-start "Second Brain Backend" cmd /k "npm run server"
+echo Starting backend service in new window...
+start "Second Brain Backend" cmd /k "cd /d %~dp0 && call npm run server"
 
-timeout /t 3 >nul
+echo Waiting for backend to start...
+timeout /t 5 /nobreak >nul
 
-echo 正在启动前端服务...
-start "Second Brain Frontend" cmd /k "npm run dev"
+echo Starting frontend service in new window...
+start "Second Brain Frontend" cmd /k "cd /d %~dp0 && call npm run dev"
 
 echo.
 echo ====================================
-echo 服务启动中...
-echo 后端服务: http://localhost:3000
-echo 前端服务: http://localhost:5173
+echo Services are starting...
+echo Backend: http://localhost:3000
+echo Frontend: http://localhost:5173
 echo ====================================
 echo.
-echo 请等待浏览器自动打开，或手动访问 http://localhost:5173
-echo 按任意键退出此窗口...
+echo Two new windows have been opened:
+echo - Backend service window
+echo - Frontend service window
+echo.
+echo You can close this window now.
+echo The services will continue running in the other windows.
+echo.
+echo To stop the services, close the Backend and Frontend windows.
+echo Press any key to close this window...
 pause >nul
