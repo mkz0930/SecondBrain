@@ -5,6 +5,15 @@ echo 外挂大脑系统启动脚本
 echo ====================================
 echo.
 
+REM 检查并设置Node.js版本
+where nvm >nul 2>nul
+if %ERRORLEVEL% EQU 0 (
+    if exist ".nvmrc" (
+        echo 检测到 .nvmrc 文件，正在切换 Node 版本...
+        call nvm use 20.19.6
+    )
+)
+
 REM 检查Node.js是否安装
 where node >nul 2>nul
 if %ERRORLEVEL% NEQ 0 (
