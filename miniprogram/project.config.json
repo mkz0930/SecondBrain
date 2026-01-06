@@ -1,0 +1,8 @@
+{
+  "projectname": "second-brain-mini",
+  "miniprogramRoot": "./",
+  "appid": "YOUR_APPID",
+  "setting": {
+    "urlCheck": false
+  }
+}

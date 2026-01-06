@@ -1,17 +1,24 @@
 import express from 'express'
 import { query, run } from '../models/database.js'
+import { requireUser } from '../middleware/auth.js'
 
 const router = express.Router()
+router.use(requireUser)
 
-// 获取标签列表
 router.get('/', async (req, res) => {
   try {
-    const tags = await query(`
-      SELECT t.*,
-        (SELECT COUNT(*) FROM content_tags ct WHERE ct.tag_id = t.id) as count
-      FROM tags t
-      ORDER BY t.created_at DESC
-    `)
+    const userId = req.user.id
+    const tags = await query(
+      `SELECT t.*,
+        (SELECT COUNT(*)
+         FROM content_tags ct
+         JOIN contents c ON c.id = ct.content_id
+         WHERE ct.tag_id = t.id AND c.user_id = ? AND c.deleted_at IS NULL) as count
+       FROM tags t
+       WHERE t.user_id = ?
+       ORDER BY t.created_at DESC`,
+      [userId, userId]
+    )
 
     res.json({ data: tags })
   } catch (error) {
@@ -20,7 +27,6 @@ router.get('/', async (req, res) => {
   }
 })
 
-// 创建标签
 router.post('/', async (req, res) => {
   try {
     const { name, color } = req.body
@@ -29,15 +35,14 @@ router.post('/', async (req, res) => {
       return res.status(400).json({ error: 'Name is required' })
     }
 
-    // 检查标签名称是否已存在
-    const existing = await query('SELECT * FROM tags WHERE name = ?', [name])
+    const existing = await query('SELECT * FROM tags WHERE name = ? AND user_id = ?', [name, req.user.id])
     if (existing.length > 0) {
       return res.status(409).json({ error: 'Tag name already exists' })
     }
 
     const result = await run(
-      'INSERT INTO tags (name, color) VALUES (?, ?)',
-      [name, color || null]
+      'INSERT INTO tags (name, color, user_id) VALUES (?, ?, ?)',
+      [name, color || null, req.user.id]
     )
 
     res.status(201).json({
