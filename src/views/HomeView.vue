@@ -11,6 +11,7 @@
           class="search-input"
         />
         <button class="btn-primary" @click="goToNew">+ 新建内容</button>
+        <button class="btn-secondary" @click="handleLogout">登出</button>
       </div>
     </div>
 
@@ -143,11 +144,14 @@ import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useContentStore } from '../stores/content'
 import { useTagStore } from '../stores/tag'
+import { useUserStore } from '../stores/user'
 import { formatDate, truncateText, getContentTypeName } from '../utils/helpers'
+import api from '../utils/api'
 
 const router = useRouter()
 const contentStore = useContentStore()
 const tagStore = useTagStore()
+const userStore = useUserStore()
 
 const searchKeyword = ref('')
 
@@ -208,6 +212,22 @@ function truncate(text) {
 
 function getTypeName(type) {
   return getContentTypeName(type)
+}
+
+async function handleLogout() {
+  if (!confirm('确定要登出吗？')) {
+    return
+  }
+  
+  try {
+    await api.post('/api/auth/logout')
+  } catch (error) {
+    console.error('Logout error:', error)
+  } finally {
+    // 无论是否成功，都清除本地认证信息
+    userStore.clearAuth()
+    router.push('/login')
+  }
 }
 </script>
 
@@ -406,5 +426,21 @@ function getTypeName(type) {
 .pagination button:disabled {
   opacity: 0.5;
   cursor: not-allowed;
+}
+
+.btn-secondary {
+  padding: 8px 16px;
+  background: white;
+  color: #606266;
+  border: 1px solid #dcdfe6;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+  transition: all 0.3s;
+}
+
+.btn-secondary:hover {
+  color: #409eff;
+  border-color: #409eff;
 }
 </style>

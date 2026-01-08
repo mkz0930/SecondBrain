@@ -10,13 +10,14 @@
     "server": "node server/index.js"
   },
   "dependencies": {
-    "vue": "^3.3.4",
-    "vue-router": "^4.2.4",
-    "pinia": "^2.1.6",
     "axios": "^1.5.0",
+    "bcrypt": "^6.0.0",
+    "cors": "^2.8.5",
     "express": "^4.18.2",
+    "pinia": "^2.1.6",
     "sqlite3": "^5.1.6",
-    "cors": "^2.8.5"
+    "vue": "^3.3.4",
+    "vue-router": "^4.2.4"
   },
   "devDependencies": {
     "@vitejs/plugin-vue": "^4.3.4",
