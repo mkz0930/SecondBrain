@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 Second Brain System Startup Script
-外挂大脑系统启动脚本
+外挂大脑启动脚本
 """
 
 import os
@@ -10,12 +10,13 @@ import sys
 import subprocess
 import time
 import platform
+import signal
 
 def print_header():
     """打印启动标题"""
     print("=" * 50)
     print("Second Brain System Startup")
-    print("外挂大脑系统启动")
+    print("外挂大脑启动")
     print("=" * 50)
     print()
 
@@ -29,6 +30,85 @@ def check_command(command):
         return True
     except (subprocess.CalledProcessError, FileNotFoundError):
         return False
+
+def find_listening_pids(port):
+    system = platform.system()
+    if system == "Windows":
+        try:
+            output = subprocess.check_output(["netstat", "-ano"], text=True, errors="ignore")
+        except Exception as e:
+            print(f"Warning: failed to check port {port}: {e}")
+            return []
+        pids = set()
+        for line in output.splitlines():
+            parts = line.split()
+            if len(parts) < 5:
+                continue
+            if parts[0].upper() != "TCP":
+                continue
+            local = parts[1]
+            state = parts[3].upper()
+            pid = parts[4]
+            if state != "LISTENING":
+                continue
+            if local.endswith(f":{port}") and pid.isdigit() and pid != "0":
+                pids.add(int(pid))
+        return sorted(pids)
+
+    try:
+        output = subprocess.check_output(
+            ["lsof", "-nP", f"-iTCP:{port}", "-sTCP:LISTEN", "-t"],
+            text=True,
+            errors="ignore"
+        )
+        return sorted({int(line.strip()) for line in output.splitlines() if line.strip().isdigit()})
+    except FileNotFoundError:
+        pass
+    except subprocess.CalledProcessError:
+        return []
+
+    try:
+        output = subprocess.check_output(["ss", "-ltnp"], text=True, errors="ignore")
+    except Exception:
+        return []
+
+    pids = set()
+    for line in output.splitlines():
+        if f":{port}" not in line or "pid=" not in line:
+            continue
+        for part in line.split("pid=")[1:]:
+            digits = ""
+            for ch in part:
+                if ch.isdigit():
+                    digits += ch
+                else:
+                    break
+            if digits:
+                pids.add(int(digits))
+    return sorted(pids)
+
+def free_ports(ports):
+    print("Releasing ports:", ", ".join(str(port) for port in ports))
+    killed = set()
+    for port in ports:
+        pids = find_listening_pids(port)
+        if not pids:
+            print(f"Port {port} is free.")
+            continue
+        for pid in pids:
+            if pid in killed:
+                continue
+            killed.add(pid)
+            print(f"Stopping process {pid} on port {port}...")
+            if platform.system() == "Windows":
+                subprocess.run(["taskkill", "/PID", str(pid), "/F"], check=False)
+            else:
+                try:
+                    os.kill(pid, signal.SIGTERM)
+                except Exception as e:
+                    print(f"Warning: failed to stop pid {pid}: {e}")
+    if killed:
+        time.sleep(1)
 
 def switch_node_version():
     """切换 Node.js 版本"""
@@ -191,6 +271,7 @@ def main():
     print_header()
     switch_node_version()
     check_environment()
+    free_ports([3000, 5173])
     start_services()
 
 if __name__ == "__main__":

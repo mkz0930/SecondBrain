@@ -1,4 +1,4 @@
-# 外挂大脑系统 - Second Brain
+# 外挂大脑 - Second Brain
 
 
 

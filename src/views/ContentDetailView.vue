@@ -23,8 +23,8 @@
 
       <div class="content-meta">
         <span class="type-badge">{{ getTypeName(content.type) }}</span>
-        <span class="rating" v-if="content.rating">
-          {{ '★'.repeat(content.rating) }}{{ '☆'.repeat(5 - content.rating) }}
+        <span class="rating" v-if="content.smart_rating !== null && content.smart_rating !== undefined">
+          {{ '★'.repeat(content.smart_rating) }}{{ '☆'.repeat(5 - content.smart_rating) }}
         </span>
         <span class="access-count">访问 {{ content.access_count }} 次</span>
       </div>

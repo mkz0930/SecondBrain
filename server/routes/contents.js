@@ -18,6 +18,15 @@ function normalizeOrder(order) {
   return order === 'asc' ? 'asc' : 'desc'
 }
 
+function computeSmartRating({ accessCount, annotationCount, isFavorite, contentLength }) {
+  const accessScore = Math.min(2, Math.log2(accessCount + 1))
+  const lengthScore = Math.min(1.6, Math.log10(contentLength + 1) * 1.1)
+  const favoriteScore = isFavorite ? 0.8 : 0
+  const annotationScore = Math.min(1, annotationCount * 0.25)
+  const raw = accessScore + lengthScore + favoriteScore + annotationScore
+  return Math.max(0, Math.min(5, Math.round(raw)))
+}
+
 router.get('/', async (req, res) => {
   try {
     const {
@@ -77,7 +86,12 @@ router.get('/', async (req, res) => {
     const total = countResult.total
 
     const sql = `
-      SELECT c.* FROM contents c
+      SELECT
+        c.*,
+        (SELECT COUNT(*) FROM access_logs al WHERE al.content_id = c.id) as access_count,
+        (SELECT COUNT(*) FROM annotations an WHERE an.content_id = c.id) as annotation_count,
+        length(COALESCE(c.title, '')) + length(COALESCE(c.content, '')) as content_length
+      FROM contents c
       ${whereClause}
       ORDER BY c.${normalizeSort(sort)} ${normalizeOrder(order)}
       LIMIT ? OFFSET ?
@@ -93,6 +107,15 @@ router.get('/', async (req, res) => {
       )
       content.tags = tags
       content.is_favorite = Boolean(content.is_favorite)
+      const accessCount = Number(content.access_count) || 0
+      const annotationCount = Number(content.annotation_count) || 0
+      const contentLength = Number(content.content_length) || 0
+      content.smart_rating = computeSmartRating({
+        accessCount,
+        annotationCount,
+        isFavorite: content.is_favorite,
+        contentLength
+      })
     }
 
     res.json({
@@ -132,15 +155,24 @@ router.get('/:id', async (req, res) => {
       [id]
     )
 
-    const accessCount = await queryOne(
+    const accessCountRow = await queryOne(
       'SELECT COUNT(*) as count FROM access_logs WHERE content_id = ?',
       [id]
     )
 
     content.tags = tags
     content.annotations = annotations
-    content.access_count = accessCount.count
+    const accessCount = Number(accessCountRow.count) || 0
+    content.access_count = accessCount
     content.is_favorite = Boolean(content.is_favorite)
+    content.annotation_count = annotations.length
+    content.content_length = (content.title || '').length + (content.content || '').length
+    content.smart_rating = computeSmartRating({
+      accessCount,
+      annotationCount: content.annotation_count,
+      isFavorite: content.is_favorite,
+      contentLength: content.content_length
+    })
 
     res.json(content)
   } catch (error) {

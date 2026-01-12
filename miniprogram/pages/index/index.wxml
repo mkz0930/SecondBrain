@@ -1,21 +1,39 @@
 <view class="page">
-  <view class="header">
-    <text class="title">Second Brain</text>
-    <button class="sync-button" bindtap="onTapSync" loading="{{loading}}">Sync</button>
-  </view>
-  <view class="status" wx:if="{{error}}">
-    <text class="error">{{error}}</text>
-  </view>
-  <view class="list">
-    <view class="item" wx:for="{{items}}" wx:key="id">
-      <view class="item-header">
-        <text class="item-title">{{item.title}}</text>
-        <text class="item-type">{{item.type}}</text>
+  <view class="bg"></view>
+  <view class="content">
+    <view class="header">
+      <view class="title-block">
+        <text class="title">Second Brain</text>
+        <text class="subtitle">Capture, sync, and review your notes.</text>
       </view>
-      <text class="item-content">{{item.content}}</text>
+      <button class="sync-button" bindtap="onTapSync" loading="{{loading}}">Sync</button>
     </view>
-  </view>
-  <view class="empty" wx:if="{{items.length === 0 && !loading}}">
-    <text>No data yet. Pull down or tap sync.</text>
+    <view class="stats-card">
+      <view class="stats-item">
+        <text class="stats-label">Total</text>
+        <text class="stats-value">{{items.length}}</text>
+      </view>
+      <view class="stats-divider"></view>
+      <view class="stats-item">
+        <text class="stats-label">Last sync</text>
+        <text class="stats-value stats-value--small">{{loading ? 'Syncing...' : (lastSyncAt || 'Never')}}</text>
+      </view>
+    </view>
+    <view class="status" wx:if="{{error}}">
+      <text class="error">{{error}}</text>
+    </view>
+    <view class="list" wx:if="{{items.length}}">
+      <view class="item" wx:for="{{items}}" wx:key="id">
+        <view class="item-header">
+          <text class="item-title">{{item.title}}</text>
+          <text class="item-type">{{item.type}}</text>
+        </view>
+        <text class="item-content">{{item.content}}</text>
+      </view>
+    </view>
+    <view class="empty" wx:if="{{items.length === 0 && !loading}}">
+      <text class="empty-title">Nothing here yet</text>
+      <text class="empty-desc">Pull down or tap sync to load notes.</text>
+    </view>
   </view>
 </view>
