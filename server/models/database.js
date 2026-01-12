@@ -225,7 +225,80 @@ export async function initDatabase() {
             'CREATE UNIQUE INDEX IF NOT EXISTS idx_users_username ON users(username)'
           )
 
-          console.log('Database initialized successfully')
+          // 飞书同步相关表
+          await runAsync(
+            database,
+            `CREATE TABLE IF NOT EXISTS feishu_sync_config (
+              id INTEGER PRIMARY KEY AUTOINCREMENT,
+              user_id INTEGER NOT NULL,
+              app_id TEXT NOT NULL,
+              app_secret TEXT NOT NULL,
+              access_token TEXT,
+              token_expires_at DATETIME,
+              table_id TEXT NOT NULL,
+              enabled INTEGER DEFAULT 1,
+              sync_interval INTEGER DEFAULT 15,
+              created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+              updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+              FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+            )`
+          )
+
+          await runAsync(
+            database,
+            `CREATE TABLE IF NOT EXISTS feishu_sync_mapping (
+              id INTEGER PRIMARY KEY AUTOINCREMENT,
+              content_id INTEGER NOT NULL,
+              feishu_record_id TEXT NOT NULL,
+              local_updated_at DATETIME,
+              feishu_updated_at DATETIME,
+              last_sync_at DATETIME,
+              sync_direction TEXT,
+              created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+              UNIQUE(content_id),
+              FOREIGN KEY (content_id) REFERENCES contents(id) ON DELETE CASCADE
+            )`
+          )
+
+          await runAsync(
+            database,
+            `CREATE TABLE IF NOT EXISTS feishu_sync_log (
+              id INTEGER PRIMARY KEY AUTOINCREMENT,
+              user_id INTEGER NOT NULL,
+              sync_type TEXT NOT NULL,
+              start_at DATETIME NOT NULL,
+              end_at DATETIME,
+              status TEXT NOT NULL,
+              total_count INTEGER DEFAULT 0,
+              success_count INTEGER DEFAULT 0,
+              failed_count INTEGER DEFAULT 0,
+              conflict_count INTEGER DEFAULT 0,
+              error_message TEXT,
+              details TEXT,
+              created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+              FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+            )`
+          )
+
+          // 创建飞书同步相关索引
+          await runAsync(
+            database,
+            'CREATE INDEX IF NOT EXISTS idx_feishu_mapping_content ON feishu_sync_mapping(content_id)'
+          )
+          await runAsync(
+            database,
+            'CREATE INDEX IF NOT EXISTS idx_feishu_mapping_record ON feishu_sync_mapping(feishu_record_id)'
+          )
+          await runAsync(
+            database,
+            'CREATE INDEX IF NOT EXISTS idx_feishu_log_user_time ON feishu_sync_log(user_id, start_at DESC)'
+          )
+          await runAsync(
+            database,
+            'CREATE INDEX IF NOT EXISTS idx_feishu_config_user ON feishu_sync_config(user_id)'
+          )
+
+          console.log('Database initialized successfully (including Feishu sync tables)')
           resolve()
         } catch (err) {
           console.error('Database initialization error:', err)

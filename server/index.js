@@ -4,8 +4,10 @@ import contentsRouter from './routes/contents.js'
 import tagsRouter from './routes/tags.js'
 import statsRouter from './routes/stats.js'
 import authRouter from './routes/auth.js'
+import feishuRouter from './routes/feishu.js'
 import { initDatabase } from './models/database.js'
 import { ensureDefaultUser, backfillUserOwnership, ensureDefaultAdmin } from './models/users.js'
+import { startSyncScheduler } from './services/sync-scheduler.js'
 
 const app = express()
 const PORT = process.env.PORT || 3000
@@ -26,6 +28,7 @@ app.use('/api/auth', authRouter)
 app.use('/api/contents', contentsRouter)
 app.use('/api/tags', tagsRouter)
 app.use('/api/stats', statsRouter)
+app.use('/api/feishu', feishuRouter)
 
 app.get('/health', (req, res) => {
   res.json({ status: 'ok' })
@@ -33,4 +36,12 @@ app.get('/health', (req, res) => {
 
 app.listen(PORT, () => {
   console.log(`Server is running on http://localhost:${PORT}`)
+  
+  // 启动飞书同步定时任务
+  if (process.env.FEISHU_SYNC_ENABLED !== 'false') {
+    console.log('[SyncScheduler] Starting Feishu sync scheduler...')
+    startSyncScheduler()
+  } else {
+    console.log('[SyncScheduler] Feishu sync scheduler is disabled')
+  }
 })
