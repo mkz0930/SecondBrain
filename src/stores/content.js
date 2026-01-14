@@ -110,10 +110,19 @@ export const useContentStore = defineStore('content', () => {
   async function toggleFavorite(id) {
     try {
       const response = await api.post(`/api/contents/${id}/favorite`)
-      if (currentContent.value && currentContent.value.id === id) {
+      // 使用宽松比较或统一转换为字符串，因为id可能是路由参数(string)
+      if (currentContent.value && String(currentContent.value.id) === String(id)) {
         currentContent.value.is_favorite = response.data.is_favorite
       }
-      await fetchContents()
+      
+      // 同时更新列表中的状态，避免重新fetch带来的闪烁
+      const listItem = contents.value.find(c => String(c.id) === String(id))
+      if (listItem) {
+        listItem.is_favorite = response.data.is_favorite
+      }
+
+      // 可选：仍然重新fetch以确保完全同步，或者依赖上面的本地更新
+      // await fetchContents() 
     } catch (err) {
       error.value = err.message
       console.error('Failed to toggle favorite:', err)

@@ -18,16 +18,23 @@ const MAX_CONSECUTIVE_FAILURES = 3
 export function startSyncScheduler() {
   console.log('[SyncScheduler] Initializing sync scheduler...')
   
-  // 立即加载所有用户配置
-  loadAllUserConfigs()
+  // 延迟 2 分钟启动首次加载，避免服务器启动或用户刚登录时立即触发同步导致卡顿
+  const STARTUP_DELAY = 2 * 60 * 1000 
   
-  // 每5分钟重新加载配置（检测新增或修改的配置）
-  cron.schedule('*/5 * * * *', () => {
-    console.log('[SyncScheduler] Reloading user configurations...')
+  console.log(`[SyncScheduler] Scheduler will start in ${STARTUP_DELAY/1000} seconds to avoid startup lag...`)
+  
+  setTimeout(() => {
+    console.log('[SyncScheduler] Starting initial config load...')
     loadAllUserConfigs()
-  })
+    
+    // 每5分钟重新加载配置（检测新增或修改的配置）
+    cron.schedule('*/5 * * * *', () => {
+      console.log('[SyncScheduler] Reloading user configurations...')
+      loadAllUserConfigs()
+    })
+  }, STARTUP_DELAY)
   
-  console.log('[SyncScheduler] Sync scheduler started')
+  console.log('[SyncScheduler] Sync scheduler initialization completed (waiting for delay)')
 }
 
 /**

@@ -16,9 +16,9 @@ build/
 
 data/
 
-*.db
+# *.db
 
-*.db-journal
+# *.db-journal
 
 
 

@@ -348,6 +348,12 @@ export class FeishuAdapter {
    */
   convertFromFeishuRecord(record) {
     const fields = record.fields
+    // 调试日志：查看原始字段数据类型
+    // console.log('[FeishuAdapter] Raw fields:', JSON.stringify(fields, null, 2))
+    
+    // 获取分类/类型
+    const rawType = this.extractText(fields['内容类型'] || fields['分类'] || fields['Type'] || fields['Category'])
+    
     const typeMap = {
       '随笔': 'note',
       '文章': 'article',
@@ -355,19 +361,63 @@ export class FeishuAdapter {
       '书籍': 'book'
     }
 
+    // 提取原始数据
+    let title = this.extractText(fields['标题'] || fields['Title'] || fields['Name'])
+    const content = this.extractText(fields['内容正文'] || fields['内容'] || fields['Content'] || fields['Body'])
+    
+    // 如果标题为空，且内容不为空，自动截取内容作为标题
+    if (!title && content) {
+      // 截取前30个字符
+      title = content.slice(0, 30).replace(/[\r\n]+/g, ' ')
+      if (content.length > 30) title += '...'
+    }
+
     return {
       id: fields['记录ID'] ? parseInt(fields['记录ID'], 10) : null,
-      title: fields['标题'] || '',
-      type: typeMap[fields['内容类型']] || 'note',
-      content: fields['内容正文'] || '',
-      source: fields['来源'] || '',
-      rating: fields['评分'] || null,
-      is_favorite: fields['是否收藏'] ? 1 : 0,
-      tags: fields['标签'] || [],
-      created_at: this.timestampToDate(fields['创建时间']),
-      updated_at: this.timestampToDate(fields['更新时间']),
+      title: title,
+      type: typeMap[rawType] || 'note',
+      content: content,
+      source: this.extractText(fields['来源'] || fields['Source'] || fields['Url'] || fields['链接']),
+      rating: fields['评分'] || fields['Rating'] || null,
+      is_favorite: (fields['是否收藏'] || fields['Favorite'] || fields['IsFavorite']) ? 1 : 0,
+      tags: fields['标签'] || fields['Tags'] || [],
+      created_at: this.timestampToDate(fields['创建时间'] || fields['日期'] || fields['CreatedAt'] || fields['Date']),
+      updated_at: this.timestampToDate(fields['更新时间'] || fields['UpdatedAt']),
       feishu_record_id: record.record_id
     }
+  }
+
+  /**
+   * 辅助方法：提取文本内容
+   * 飞书字段可能是字符串，也可能是包含text属性的对象数组
+   */
+  extractText(fieldValue) {
+    if (fieldValue === null || fieldValue === undefined) return ''
+    
+    // 如果是字符串，直接返回
+    if (typeof fieldValue === 'string') return fieldValue
+    
+    // 如果是数组 (Segment结构)
+    if (Array.isArray(fieldValue)) {
+      return fieldValue.map(item => {
+        // 如果元素本身是字符串（某些多选字段）
+        if (typeof item === 'string') return item
+        
+        // 文本类型 / URL类型 / @提及类型
+        if (item.text) return item.text
+        if (item.link) return item.link
+        if (item.name) return item.name
+        
+        return ''
+      }).join('')
+    }
+    
+    // 如果是单个对象 (Url等)
+    if (typeof fieldValue === 'object') {
+      return fieldValue.text || fieldValue.link || ''
+    }
+    
+    return String(fieldValue)
   }
 
   /**

@@ -23,7 +23,7 @@ export class SyncService {
   /**
    * 执行双向同步
    */
-  async performSync(syncType = 'manual', direction = 'both') {
+  async performSync(syncType = 'manual', direction = 'both', force = false) {
     const syncId = await this.createSyncLog(syncType)
     const startTime = Date.now()
     
@@ -36,7 +36,7 @@ export class SyncService {
     }
 
     try {
-      this.logger.info(`[SyncService] 开始飞书同步，用户ID: ${this.userId}，同步类型: ${syncType}，方向: ${direction}`)
+      this.logger.info(`[SyncService] 开始飞书同步，用户ID: ${this.userId}，同步类型: ${syncType}，方向: ${direction}，强制: ${force}`)
 
       // 刷新token并保存
       const tokenInfo = await this.adapter.refreshAccessToken()
@@ -53,7 +53,7 @@ export class SyncService {
 
       if (direction === 'both' || direction === 'pull') {
         // 拉取飞书变更到本地
-        const pullStats = await this.pullFromFeishu()
+        const pullStats = await this.pullFromFeishu(force)
         stats.total += pullStats.total
         stats.success += pullStats.success
         stats.failed += pullStats.failed
@@ -453,13 +453,31 @@ export class SyncService {
           feishu_record_id: content.feishu_record_id
         })
       } catch (error) {
-        this.logger.error(`[SyncService] 更新飞书记录失败，内容ID: ${content.id}，错误:`, error.message)
-        stats.failed++
-        stats.details.push({
-          type: 'update_error',
-          content_id: content.id,
-          error: error.message
-        })
+        // 检查是否是 RecordIdNotFound 错误
+        if (error.message.includes('RecordIdNotFound') || error.message.includes('1254043')) {
+          this.logger.warn(`[SyncService] 飞书记录不存在，移除本地映射关系，内容ID: ${content.id}，飞书记录ID: ${content.feishu_record_id}`)
+          
+          // 删除映射关系，下次同步时会作为新记录重新创建
+          await run('DELETE FROM feishu_sync_mapping WHERE content_id = ?', [content.id])
+          
+          stats.details.push({
+            type: 'update_error_record_not_found',
+            content_id: content.id,
+            feishu_record_id: content.feishu_record_id,
+            action: 'mapping_removed'
+          })
+          
+          // 可以在这里尝试立即作为新记录创建，或者等待下一次同步
+          // 为了简单起见，我们移除映射，下次同步会自动检测到"新增"
+        } else {
+          this.logger.error(`[SyncService] 更新飞书记录失败，内容ID: ${content.id}，错误:`, error.message)
+          stats.failed++
+          stats.details.push({
+            type: 'update_error',
+            content_id: content.id,
+            error: error.message
+          })
+        }
       }
     }
 
@@ -746,6 +764,30 @@ export class SyncService {
         this.userId
       ]
     )
+  }
+
+  /**
+   * 清空本地数据
+   */
+  async clearLocalData() {
+    this.logger.warn(`[SyncService] 正在清空本地数据，用户ID: ${this.userId}`)
+    
+    // 删除所有关联的标签关系
+    await run(`
+      DELETE FROM content_tags 
+      WHERE content_id IN (SELECT id FROM contents WHERE user_id = ?)
+    `, [this.userId])
+    
+    // 删除所有映射关系
+    await run(`
+      DELETE FROM feishu_sync_mapping 
+      WHERE content_id IN (SELECT id FROM contents WHERE user_id = ?)
+    `, [this.userId])
+    
+    // 删除所有内容
+    await run('DELETE FROM contents WHERE user_id = ?', [this.userId])
+    
+    this.logger.warn(`[SyncService] 本地数据已清空`)
   }
 
   /**

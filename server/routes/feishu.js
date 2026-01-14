@@ -379,4 +379,71 @@ router.post('/import-all', async (req, res) => {
   }
 })
 
+/**
+ * 重置本地数据并全量拉取
+ */
+router.post('/reset-pull', async (req, res) => {
+  try {
+    console.log(`[FeishuAPI] Reset and Pull triggered by user ${req.user.id}`)
+
+    // 获取配置
+    const config = await queryOne(
+      'SELECT * FROM feishu_sync_config WHERE user_id = ? AND enabled = 1',
+      [req.user.id]
+    )
+
+    if (!config) {
+      return res.status(400).json({ error: 'Feishu sync not configured or disabled' })
+    }
+
+    // 解密app_secret
+    let appSecret
+    try {
+      appSecret = decryptSecret(config.app_secret, ENCRYPTION_KEY)
+    } catch (e) {
+      console.error('[FeishuAPI] Decrypt secret failed:', e)
+      return res.status(500).json({ error: 'Failed to decrypt app secret' })
+    }
+
+    // 创建同步服务
+    const syncService = new SyncService({
+      user_id: req.user.id,
+      table_id: config.table_id,
+      app_id: config.app_id,
+      app_secret: appSecret,
+      access_token: config.access_token,
+      token_expires_at: config.token_expires_at
+    }, console)
+
+    // 清空本地数据
+    try {
+      await syncService.clearLocalData()
+    } catch (e) {
+      console.error('[FeishuAPI] Clear local data failed:', e)
+      return res.status(500).json({ error: 'Failed to clear local data: ' + e.message })
+    }
+
+    // 强制全量拉取
+    // 注意：performSync 是异步的，这里不等待它完成
+    syncService.performSync('manual', 'pull', true)
+      .then(result => {
+        console.log(`[FeishuAPI] Reset and Pull completed for user ${req.user.id}:`, result)
+      })
+      .catch(error => {
+        console.error(`[FeishuAPI] Reset and Pull failed for user ${req.user.id}:`, error)
+      })
+
+    res.json({
+      message: 'Reset and Pull started',
+      status: 'running',
+      server_version: 'fixed-v1'
+    })
+  } catch (error) {
+    console.error('[FeishuAPI] Reset and Pull error:', error)
+    // 打印完整的错误堆栈
+    console.error(error.stack)
+    res.status(500).json({ error: error.message, stack: error.stack })
+  }
+})
+
 export default router
