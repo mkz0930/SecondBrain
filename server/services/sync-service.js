@@ -222,7 +222,7 @@ export class SyncService {
       LEFT JOIN tags t ON ct.tag_id = t.id
       WHERE c.user_id = ? 
         AND c.deleted_at IS NULL
-        AND datetime(c.updated_at) > datetime(m.local_updated_at)
+        AND (m.local_updated_at IS NULL OR datetime(c.updated_at) > datetime(m.local_updated_at))
       GROUP BY c.id, m.feishu_record_id
     `, [this.userId])
 
@@ -304,9 +304,9 @@ export class SyncService {
       if (!content) continue
 
       // 检查是否双方都有更新
-      const localUpdated = content.updated_at > mapping.local_updated_at
+      const localUpdated = mapping.local_updated_at && content.updated_at > mapping.local_updated_at
       const feishuUpdatedAt = this.adapter.timestampToDate(fields['更新时间'])
-      const feishuUpdated = feishuUpdatedAt && feishuUpdatedAt > mapping.feishu_updated_at
+      const feishuUpdated = mapping.feishu_updated_at && feishuUpdatedAt && feishuUpdatedAt > mapping.feishu_updated_at
 
       if (localUpdated && feishuUpdated) {
         conflicts.push({
@@ -429,8 +429,12 @@ export class SyncService {
 
     for (const content of contents) {
       try {
+        this.logger.info(`[SyncService] 准备更新飞书记录，内容ID: ${content.id}, 飞书记录ID: ${content.feishu_record_id}`)
+        
         const tags = content.tag_names ? content.tag_names.split(',').map(name => ({ name })) : []
         const record = this.adapter.convertToFeishuRecord(content, tags)
+        
+        this.logger.info(`[SyncService] 更新字段: 标题="${content.title}", 类型="${content.type}", 评分=${content.rating}, 收藏=${content.is_favorite}, 标签=[${tags.map(t => t.name).join(',')}]`)
         
         await this.adapter.updateRecord(
           this.tableId.split('_')[0],
@@ -441,6 +445,7 @@ export class SyncService {
 
         await this.updateMapping(content.id, content.feishu_record_id, content.updated_at, 'to_feishu')
         
+        this.logger.info(`[SyncService] 飞书记录更新成功: ${content.feishu_record_id}`)
         stats.success++
         stats.details.push({
           type: 'update',
@@ -510,6 +515,22 @@ export class SyncService {
 
     for (const record of records) {
       try {
+        // 检查是否已经存在该飞书记录的映射
+        const existingMapping = await queryOne(
+          'SELECT content_id FROM feishu_sync_mapping WHERE feishu_record_id = ?',
+          [record.record_id]
+        )
+
+        if (existingMapping) {
+          this.logger.info(`[SyncService] 飞书记录 ${record.record_id} 已存在，跳过创建`)
+          stats.details.push({
+            type: 'skip_duplicate',
+            content_id: existingMapping.content_id,
+            feishu_record_id: record.record_id
+          })
+          continue
+        }
+
         const data = this.adapter.convertFromFeishuRecord(record)
         
         // 创建内容
@@ -537,6 +558,7 @@ export class SyncService {
         // 创建映射
         await this.createMapping(contentId, record.record_id, data.updated_at, 'from_feishu')
 
+        this.logger.info(`[SyncService] 创建本地内容成功，ID: ${contentId}，飞书记录: ${record.record_id}`)
         stats.success++
         stats.details.push({
           type: 'create_local',

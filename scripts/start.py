@@ -264,9 +264,10 @@ def start_services():
 
 def main():
     """主函数"""
-    # 切换到脚本所在目录
+    # 切换到项目根目录（脚本所在目录的上一级）
     script_dir = os.path.dirname(os.path.abspath(__file__))
-    os.chdir(script_dir)
+    project_root = os.path.dirname(script_dir)
+    os.chdir(project_root)
     
     print_header()
     switch_node_version()

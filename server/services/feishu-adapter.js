@@ -185,6 +185,8 @@ export class FeishuAdapter {
     if (sort) data.sort = sort
     if (pageToken) data.page_token = pageToken
 
+    this.logger.info(`[FeishuAdapter] Searching records in app ${appToken}, table ${tableId}`)
+    
     const response = await this.request(
       'POST',
       `/open-apis/bitable/v1/apps/${appToken}/tables/${tableId}/records/search`,

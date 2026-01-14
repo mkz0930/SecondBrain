@@ -5,6 +5,11 @@ Write-Host "Second Brain System Startup" -ForegroundColor Cyan
 Write-Host "====================================" -ForegroundColor Cyan
 Write-Host ""
 
+# Switch to project root directory
+$ScriptDir = Split-Path $MyInvocation.MyCommand.Path
+$ProjectRoot = Split-Path $ScriptDir -Parent
+Set-Location $ProjectRoot
+
 # Check if nvm exists and switch Node version
 if (Get-Command nvm -ErrorAction SilentlyContinue) {
     if (Test-Path ".nvmrc") {

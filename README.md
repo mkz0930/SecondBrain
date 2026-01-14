@@ -51,16 +51,21 @@ npm install
 **Windows 系统：**
 ```powershell
 # PowerShell 脚本（推荐）
-.\start.ps1
+.\scripts\start.ps1
 
-# 或使用批处理文件
-.\start.bat
+# 或使用批处理文件（已移除，请使用 PowerShell 脚本）
 ```
 
 **Linux/Mac 系统：**
 ```bash
-chmod +x start.sh
-./start.sh
+chmod +x scripts/start.sh
+./scripts/start.sh
+```
+
+#### 方式二：Python 脚本
+
+```bash
+python scripts/start.py
 ```
 
 #### 方式二：手动启动
@@ -69,11 +74,11 @@ chmod +x start.sh
 
 #### Windows 系统
 
-双击运行 `start.bat` 或在命令行执行：
+在命令行执行：
 
 ```bash
 
-start.bat
+.\scripts\start.ps1
 
 ```
 
@@ -83,9 +88,9 @@ start.bat
 
 ```bash
 
-chmod +x start.sh
+chmod +x scripts/start.sh
 
-./start.sh
+./scripts/start.sh
 
 ```
 
@@ -158,10 +163,10 @@ second-brain/
 ├── package.json       # 项目配置
 
 ├── vite.config.js     # Vite配置
-
-├── start.bat          # Windows启动脚本
-
-└── start.sh           # Linux/Mac启动脚本
+├── scripts/           # 启动脚本
+│   ├── start.ps1
+│   ├── start.sh
+│   └── start.py
 
 ```
 
