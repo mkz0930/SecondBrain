@@ -44,6 +44,23 @@ if (!(Test-Path "node_modules")) {
     }
 }
 
+# Check if Python is installed
+if (Get-Command python -ErrorAction SilentlyContinue) {
+    Write-Host "Python detected, launching start.py..." -ForegroundColor Cyan
+    
+    # Check where start.py is located
+    if (Test-Path "$ProjectRoot\scripts\start.py") {
+        python "$ProjectRoot\scripts\start.py"
+    } elseif (Test-Path "$ProjectRoot\start.py") {
+        python "$ProjectRoot\start.py"
+    } else {
+        Write-Host "Error: start.py not found!" -ForegroundColor Red
+        exit 1
+    }
+    exit $LASTEXITCODE
+}
+
+Write-Host "Python not found, falling back to PowerShell startup..." -ForegroundColor Yellow
 Write-Host ""
 Write-Host "Starting backend service..." -ForegroundColor Green
 Start-Process powershell -ArgumentList "-NoExit", "-Command", "cd '$PWD'; npm run server" -WindowStyle Normal

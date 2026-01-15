@@ -1,5 +1,6 @@
 import { query, queryOne, run } from '../models/database.js'
 import { FeishuAdapter } from './feishu-adapter.js'
+import { syncState } from './sync-state.js'
 
 /**
  * 同步服务
@@ -38,6 +39,15 @@ export class SyncService {
     try {
       this.logger.info(`[SyncService] 开始飞书同步，用户ID: ${this.userId}，同步类型: ${syncType}，方向: ${direction}，强制: ${force}`)
 
+      // 初始化进度状态
+      syncState.set(this.userId, {
+        status: 'running',
+        stage: 'init',
+        message: '正在初始化同步...',
+        progress: 0,
+        total: 0
+      })
+
       // 刷新token并保存
       const tokenInfo = await this.adapter.refreshAccessToken()
       await this.updateToken(tokenInfo)
@@ -66,6 +76,14 @@ export class SyncService {
 
       await this.completeSyncLog(syncId, 'success', stats)
       
+      // 更新状态为完成
+      syncState.update(this.userId, {
+        status: 'finished',
+        stage: 'finished',
+        message: '同步完成',
+        progress: 100
+      })
+      
       return {
         sync_id: syncId,
         status: 'success',
@@ -76,6 +94,12 @@ export class SyncService {
       
       await this.completeSyncLog(syncId, 'failed', stats, error.message)
       
+      // 更新状态为失败
+      syncState.update(this.userId, {
+        status: 'failed',
+        message: `同步失败: ${error.message}`
+      })
+      
       throw error
     }
   }
@@ -85,6 +109,11 @@ export class SyncService {
    */
   async pushToFeishu() {
     this.logger.info('[SyncService] 开始推送本地变更到飞书')
+    
+    syncState.update(this.userId, {
+      stage: 'pushing',
+      message: '正在检测本地变更...'
+    })
     
     const stats = {
       total: 0,
@@ -100,28 +129,45 @@ export class SyncService {
       
       this.logger.info(`[SyncService] 检测到本地变更 ${stats.total} 条: 新增 ${changes.creates.length}, 更新 ${changes.updates.length}, 删除 ${changes.deletes.length}`)
 
+      syncState.update(this.userId, {
+        message: `检测到本地变更 ${stats.total} 条，准备推送...`,
+        total: stats.total,
+        progress: 0
+      })
+      
+      let processed = 0
+
       // 处理新增
       if (changes.creates.length > 0) {
+        syncState.update(this.userId, { message: `正在推送到飞书 (新增 ${changes.creates.length} 条)...` })
         const createResult = await this.createFeishuRecords(changes.creates)
         stats.success += createResult.success
         stats.failed += createResult.failed
         stats.details.push(...createResult.details)
+        processed += changes.creates.length
+        this.updatePushProgress(processed, stats.total)
       }
 
       // 处理更新
       if (changes.updates.length > 0) {
+        syncState.update(this.userId, { message: `正在推送到飞书 (更新 ${changes.updates.length} 条)...` })
         const updateResult = await this.updateFeishuRecords(changes.updates)
         stats.success += updateResult.success
         stats.failed += updateResult.failed
         stats.details.push(...updateResult.details)
+        processed += changes.updates.length
+        this.updatePushProgress(processed, stats.total)
       }
 
       // 处理删除
       if (changes.deletes.length > 0) {
+        syncState.update(this.userId, { message: `正在推送到飞书 (删除 ${changes.deletes.length} 条)...` })
         const deleteResult = await this.deleteFeishuRecords(changes.deletes)
         stats.success += deleteResult.success
         stats.failed += deleteResult.failed
         stats.details.push(...deleteResult.details)
+        processed += changes.deletes.length
+        this.updatePushProgress(processed, stats.total)
       }
 
       this.logger.info(`[SyncService] 推送到飞书：成功 ${stats.success} 条，失败 ${stats.failed} 条`)
@@ -133,11 +179,24 @@ export class SyncService {
     }
   }
 
+  updatePushProgress(processed, total) {
+    if (total > 0) {
+      const progress = Math.round((processed / total) * 100)
+      syncState.update(this.userId, { progress })
+    }
+  }
+
   /**
    * 拉取飞书变更到本地
    */
   async pullFromFeishu() {
     this.logger.info('[SyncService] 开始拉取飞书变更到本地')
+    
+    syncState.update(this.userId, {
+      stage: 'pulling',
+      message: '正在拉取飞书数据...',
+      progress: 0
+    })
     
     const stats = {
       total: 0,
@@ -152,12 +211,18 @@ export class SyncService {
       const feishuRecords = await this.fetchAllFeishuRecords()
       this.logger.info(`[SyncService] 从飞书获取到 ${feishuRecords.length} 条记录`)
 
+      syncState.update(this.userId, {
+        message: `获取到 ${feishuRecords.length} 条飞书记录，正在检测变更...`
+      })
+
       // 检测冲突
       const conflicts = await this.detectConflicts(feishuRecords)
       stats.conflicts = conflicts.length
       
       if (conflicts.length > 0) {
         this.logger.warn(`[SyncService] 检测到冲突 ${conflicts.length} 条`)
+        syncState.update(this.userId, { message: `正在解决 ${conflicts.length} 个冲突...` })
+        
         // 解决冲突：飞书端优先
         const conflictResult = await this.resolveConflicts(conflicts)
         stats.success += conflictResult.success
@@ -171,20 +236,34 @@ export class SyncService {
       
       this.logger.info(`[SyncService] 检测到飞书变更 ${stats.total} 条: 新增 ${changes.creates.length}, 更新 ${changes.updates.length}`)
 
+      syncState.update(this.userId, {
+        message: `检测到飞书变更 ${stats.total} 条，准备拉取...`,
+        total: stats.total,
+        progress: 0
+      })
+
+      let processed = 0
+
       // 处理新增
       if (changes.creates.length > 0) {
+        syncState.update(this.userId, { message: `正在同步到本地 (新增 ${changes.creates.length} 条)...` })
         const createResult = await this.createLocalContents(changes.creates)
         stats.success += createResult.success
         stats.failed += createResult.failed
         stats.details.push(...createResult.details)
+        processed += changes.creates.length
+        this.updatePullProgress(processed, stats.total)
       }
 
       // 处理更新
       if (changes.updates.length > 0) {
+        syncState.update(this.userId, { message: `正在同步到本地 (更新 ${changes.updates.length} 条)...` })
         const updateResult = await this.updateLocalContents(changes.updates)
         stats.success += updateResult.success
         stats.failed += updateResult.failed
         stats.details.push(...updateResult.details)
+        processed += changes.updates.length
+        this.updatePullProgress(processed, stats.total)
       }
 
       this.logger.info(`[SyncService] 拉取到本地：成功 ${stats.success} 条，失败 ${stats.failed} 条，冲突 ${stats.conflicts} 条`)
@@ -193,6 +272,13 @@ export class SyncService {
     } catch (error) {
       this.logger.error('[SyncService] 拉取到本地失败:', error.message)
       throw error
+    }
+  }
+
+  updatePullProgress(processed, total) {
+    if (total > 0) {
+      const progress = Math.round((processed / total) * 100)
+      syncState.update(this.userId, { progress })
     }
   }
 

@@ -3,6 +3,7 @@ import { query, queryOne, run } from '../models/database.js'
 import { requireUser } from '../middleware/auth.js'
 import { SyncService } from '../services/sync-service.js'
 import { FeishuAdapter, encryptSecret, decryptSecret } from '../services/feishu-adapter.js'
+import { syncState } from '../services/sync-state.js'
 
 const router = express.Router()
 router.use(requireUser)
@@ -444,6 +445,14 @@ router.post('/reset-pull', async (req, res) => {
     console.error(error.stack)
     res.status(500).json({ error: error.message, stack: error.stack })
   }
+})
+
+/**
+ * 获取当前同步状态
+ */
+router.get('/sync/status', (req, res) => {
+  const status = syncState.get(req.user.id)
+  res.json(status)
 })
 
 export default router

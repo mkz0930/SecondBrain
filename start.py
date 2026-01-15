@@ -152,7 +152,13 @@ def check_environment():
     # 检查依赖
     if not os.path.exists("node_modules"):
         print("\n首次运行，正在安装依赖...")
-        result = subprocess.run(["npm", "install"], check=False)
+        use_shell = platform.system() == "Windows"
+        if use_shell:
+            # Windows 下使用 shell=True
+            result = subprocess.run("npm install", shell=True, check=False)
+        else:
+            result = subprocess.run(["npm", "install"], check=False)
+            
         if result.returncode != 0:
             print("✗ 依赖安装失败")
             sys.exit(1)
@@ -161,6 +167,22 @@ def check_environment():
         print("✓ 依赖已安装")
     print()
 
+import threading
+
+def stream_reader(pipe, prefix, color_code):
+    """读取流并在每行前添加前缀"""
+    try:
+        for line in iter(pipe.readline, ''):
+            if not line:
+                break
+            # 移除行尾的换行符
+            line = line.rstrip()
+            if line:
+                # 使用 ANSI 颜色代码
+                print(f"\033[{color_code}m[{prefix}] {line}\033[0m")
+    except Exception:
+        pass
+
 def start_services():
     """启动服务"""
     print("正在启动服务...")
@@ -168,81 +190,52 @@ def start_services():
     
     system = platform.system()
     
+    # 启用 ANSI 颜色支持（Windows 10+）
+    if system == "Windows":
+        os.system('')
+        
     try:
-        if system == "Windows":
-            # Windows 系统
-            print("启动后端服务...")
-            subprocess.Popen(
-                'start "Second Brain Backend" cmd /k "npm run server"',
-                shell=True,
-                cwd=os.getcwd()
-            )
-            
-            print("等待后端启动...")
-            time.sleep(3)
-            
-            print("启动前端服务...")
-            subprocess.Popen(
-                'start "Second Brain Frontend" cmd /k "npm run dev"',
-                shell=True,
-                cwd=os.getcwd()
-            )
-            
-        elif system == "Darwin":  # macOS
-            # macOS 系统
-            print("启动后端服务...")
-            subprocess.Popen(
-                ['open', '-a', 'Terminal', '-n', '--args', 
-                 'bash', '-c', 'cd "{}" && npm run server; exec bash'.format(os.getcwd())]
-            )
-            
-            print("等待后端启动...")
-            time.sleep(3)
-            
-            print("启动前端服务...")
-            subprocess.Popen(
-                ['open', '-a', 'Terminal', '-n', '--args', 
-                 'bash', '-c', 'cd "{}" && npm run dev; exec bash'.format(os.getcwd())]
-            )
-            
-        else:  # Linux
-            # Linux 系统，尝试使用常见终端
-            terminals = ['gnome-terminal', 'konsole', 'xterm']
-            terminal = None
-            for term in terminals:
-                if check_command(term):
-                    terminal = term
-                    break
-            
-            if not terminal:
-                print("⚠ 未找到图形终端，将在后台启动服务...")
-                # 后台启动
-                with open("backend.log", "w") as f:
-                    subprocess.Popen(["npm", "run", "server"], 
-                                   stdout=f, stderr=f)
-                with open("frontend.log", "w") as f:
-                    subprocess.Popen(["npm", "run", "dev"], 
-                                   stdout=f, stderr=f)
-                print("服务已在后台启动，日志文件：backend.log, frontend.log")
-            else:
-                print("启动后端服务...")
-                if terminal == 'gnome-terminal':
-                    subprocess.Popen([terminal, '--', 'bash', '-c', 
-                                    'cd "{}" && npm run server; exec bash'.format(os.getcwd())])
-                else:
-                    subprocess.Popen([terminal, '-e', 
-                                    'bash -c "cd {} && npm run server; exec bash"'.format(os.getcwd())])
-                
-                print("等待后端启动...")
-                time.sleep(3)
-                
-                print("启动前端服务...")
-                if terminal == 'gnome-terminal':
-                    subprocess.Popen([terminal, '--', 'bash', '-c', 
-                                    'cd "{}" && npm run dev; exec bash'.format(os.getcwd())])
-                else:
-                    subprocess.Popen([terminal, '-e', 
-                                    'bash -c "cd {} && npm run dev; exec bash"'.format(os.getcwd())])
+        # 定义命令
+        # Windows 上 npm 是 cmd 脚本，需要 shell=True
+        # 其他系统直接运行
+        backend_cmd = "npm run server"
+        frontend_cmd = "npm run dev"
+        
+        use_shell = True
+        
+        print("启动后端服务...")
+        backend_proc = subprocess.Popen(
+            backend_cmd,
+            shell=use_shell,
+            cwd=os.getcwd(),
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True,
+            bufsize=1,
+            encoding='utf-8',
+            errors='replace' # 防止编码错误
+        )
+        
+        print("启动前端服务...")
+        frontend_proc = subprocess.Popen(
+            frontend_cmd,
+            shell=use_shell,
+            cwd=os.getcwd(),
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True,
+            bufsize=1,
+            encoding='utf-8',
+            errors='replace'
+        )
+        
+        # 启动读取线程
+        # 36 = Cyan (Backend), 32 = Green (Frontend)
+        t_backend = threading.Thread(target=stream_reader, args=(backend_proc.stdout, "Backend", "36"), daemon=True)
+        t_frontend = threading.Thread(target=stream_reader, args=(frontend_proc.stdout, "Frontend", "32"), daemon=True)
+        
+        t_backend.start()
+        t_frontend.start()
         
         print()
         print("=" * 50)
@@ -253,21 +246,64 @@ def start_services():
         print("=" * 50)
         print()
         print("提示：")
-        print("- 两个新窗口已打开，分别运行后端和前端服务")
-        print("- 请访问 http://localhost:5173 使用系统")
-        print("- 关闭服务窗口即可停止服务")
+        print("- 服务正在当前窗口运行")
+        print("- 按 Ctrl+C 可停止所有服务并退出")
         print()
         
+        # 等待服务运行，直到被中断
+        while True:
+            time.sleep(1)
+            if backend_proc.poll() is not None:
+                print("⚠ 后端服务已停止")
+                break
+            if frontend_proc.poll() is not None:
+                print("⚠ 前端服务已停止")
+                break
+                
+    except KeyboardInterrupt:
+        print("\n\n正在停止服务...")
     except Exception as e:
         print(f"✗ 启动失败: {e}")
-        sys.exit(1)
+    finally:
+        # 终止子进程
+        # Windows 上杀掉进程树
+        if 'backend_proc' in locals() and backend_proc:
+            if system == "Windows":
+                subprocess.run(["taskkill", "/F", "/T", "/PID", str(backend_proc.pid)], 
+                             stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            else:
+                backend_proc.terminate()
+                
+        if 'frontend_proc' in locals() and frontend_proc:
+            if system == "Windows":
+                subprocess.run(["taskkill", "/F", "/T", "/PID", str(frontend_proc.pid)], 
+                             stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            else:
+                frontend_proc.terminate()
+        
+        sys.exit(0)
 
 def main():
     """主函数"""
-    # 切换到项目根目录（脚本所在目录的上一级）
+    # 切换到项目根目录
+    # 如果脚本在根目录，直接使用当前目录
+    # 如果脚本在 scripts 目录，切换到上一级
     script_dir = os.path.dirname(os.path.abspath(__file__))
-    project_root = os.path.dirname(script_dir)
-    os.chdir(project_root)
+    
+    # 判断当前目录是否是 scripts
+    if os.path.basename(script_dir) == 'scripts':
+        project_root = os.path.dirname(script_dir)
+        os.chdir(project_root)
+    elif os.path.exists(os.path.join(script_dir, 'package.json')):
+        # 已经在根目录
+        os.chdir(script_dir)
+    else:
+        # 尝试切换到脚本所在目录，再判断
+        os.chdir(script_dir)
+        if os.path.exists('../package.json'):
+             os.chdir('..')
+
+    print(f"工作目录: {os.getcwd()}")
     
     print_header()
     switch_node_version()

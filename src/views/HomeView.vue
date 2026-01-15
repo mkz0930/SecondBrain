@@ -10,8 +10,14 @@
           @keyup.enter="handleSearch"
           class="search-input"
         />
+        <div class="sync-status" v-if="isSyncing && syncStatus.message">
+          <span class="status-text">{{ syncStatus.message }}</span>
+          <div class="progress-bar" v-if="syncStatus.progress > 0">
+            <div class="progress-fill" :style="{ width: syncStatus.progress + '%' }"></div>
+          </div>
+        </div>
         <button 
-          class="btn-secondary" 
+          class="btn-secondary sync-btn" 
           @click="handleSync" 
           :disabled="isSyncing"
           title="同步飞书数据">
@@ -176,6 +182,10 @@ const error = computed(() => contentStore.error)
 const pagination = computed(() => contentStore.pagination)
 
 const isSyncing = ref(false)
+const syncStatus = ref({
+  message: '',
+  progress: 0
+})
 const filters = computed(() => contentStore.filters)
 
 const totalPages = computed(() => {
@@ -714,6 +724,18 @@ async function handleSync() {
   color: var(--accent-strong);
   border-color: rgba(37, 99, 235, 0.4);
   transform: translateY(-1px);
+}
+
+.sync-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 100px;
+  justify-content: center;
+}
+
+.sync-btn .icon {
+  font-size: 16px;
 }
 
 @keyframes floatIn {
