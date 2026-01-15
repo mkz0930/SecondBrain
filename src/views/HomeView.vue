@@ -120,12 +120,14 @@
             </div>
             <div class="card-meta">
               <span class="type-badge">{{ getTypeName(content.type) }}</span>
-              <span class="rating" v-if="content.smart_rating !== null && content.smart_rating !== undefined">
-                {{ '★'.repeat(content.smart_rating) }}{{ '☆'.repeat(5 - content.smart_rating) }}
+              <span class="rating" v-if="getRating(content) > 0">
+                {{ '★'.repeat(getRating(content)) }}{{ '☆'.repeat(5 - getRating(content)) }}
               </span>
+              <span class="visit-count">访问 {{ content.access_count || 0 }} 次</span>
             </div>
             <div class="card-content">
-              {{ truncate(content.content) }}
+              <div class="content-text">{{ truncate(content.content) }}</div>
+              <div v-if="content.source" class="content-source">{{ content.source }}</div>
             </div>
             <div class="card-tags" v-if="content.tags && content.tags.length > 0">
               <span 
@@ -137,7 +139,10 @@
               </span>
             </div>
             <div class="card-footer">
-              <span>{{ formatDate(content.created_at) }}</span>
+              <div class="time-info">
+                <div class="time-item">创建时间: {{ formatDateTime(content.created_at) }}</div>
+                <div v-if="content.updated_at" class="time-item update-time">更新时间: {{ formatDateTime(content.updated_at) }}</div>
+              </div>
             </div>
           </div>
         </div>
@@ -166,7 +171,7 @@ import { useRouter } from 'vue-router'
 import { useContentStore } from '../stores/content'
 import { useTagStore } from '../stores/tag'
 import { useUserStore } from '../stores/user'
-import { formatDate, truncateText, getContentTypeName } from '../utils/helpers'
+import { formatDate, truncateText, getContentTypeName, formatDateTime } from '../utils/helpers'
 import api from '../utils/api'
 
 const router = useRouter()
@@ -239,6 +244,10 @@ function truncate(text) {
 
 function getTypeName(type) {
   return getContentTypeName(type)
+}
+
+function getRating(content) {
+  return content.rating || content.smart_rating || 0
 }
 
 async function handleLogout() {
@@ -626,10 +635,20 @@ async function handleSync() {
 }
 
 .card-content {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
   color: #475569;
   line-height: 1.6;
   margin-bottom: 12px;
   min-height: 60px;
+}
+
+.content-text {
+  width: 100%;
+  overflow-wrap: break-word;
+  word-wrap: break-word;
+  white-space: pre-wrap;
 }
 
 .card-tags {
@@ -648,13 +667,31 @@ async function handleSync() {
 }
 
 .card-footer {
+  padding-top: 14px;
+  border-top: 1px solid rgba(148, 163, 184, 0.2);
+}
+
+.time-info {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  color: #94a3b8;
+  flex-wrap: wrap;
+  gap: 8px;
   font-size: 12px;
-  padding-top: 14px;
-  border-top: 1px solid rgba(148, 163, 184, 0.2);
+  color: #94a3b8;
+}
+
+.visit-count {
+  font-size: 12px;
+  color: var(--muted);
+  margin-left: auto;
+}
+
+.content-source {
+  font-size: 12px;
+  color: var(--muted);
+  word-break: break-all;
+  opacity: 0.8;
 }
 
 .pagination {
