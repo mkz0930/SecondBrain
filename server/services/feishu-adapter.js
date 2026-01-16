@@ -164,6 +164,17 @@ export class FeishuAdapter {
   }
 
   /**
+   * 获取数据表字段列表
+   */
+  async getFields(appToken, tableId) {
+    const response = await this.request(
+      'GET',
+      `/open-apis/bitable/v1/apps/${appToken}/tables/${tableId}/fields`
+    )
+    return response.data.items
+  }
+
+  /**
    * 列出所有数据表
    */
   async listTables(appToken) {
@@ -318,7 +329,7 @@ export class FeishuAdapter {
   /**
    * 本地内容转换为飞书记录格式
    */
-  convertToFeishuRecord(content, tags = []) {
+  convertToFeishuRecord(content, tags = [], availableFields = null) {
     const typeMap = {
       'note': '随笔',
       'article': '文章',
@@ -326,20 +337,36 @@ export class FeishuAdapter {
       'book': '书籍'
     }
 
-    return {
-      fields: {
-        '记录ID': content.id.toString(),
-        '标题': content.title || '',
-        '内容类型': typeMap[content.type] || content.type,
-        '内容正文': content.content || '',
-        '来源': content.source || '',
-        '评分': content.rating || null,
-        '是否收藏': Boolean(content.is_favorite),
-        '标签': tags.map(tag => tag.name),
-        '创建时间': this.dateToTimestamp(content.created_at),
-        '更新时间': this.dateToTimestamp(content.updated_at),
-        '记录来源': '本地'
+    const allFields = {
+      '记录ID': content.id.toString(),
+      '标题': content.title || '',
+      '摘要': content.summary || '',
+      '内容类型': typeMap[content.type] || content.type,
+      '内容正文': content.content || '',
+      '来源': content.source || '',
+      '评分': content.rating || null,
+      '是否收藏': Boolean(content.is_favorite),
+      '标签': tags.map(tag => tag.name),
+      '创建时间': this.dateToTimestamp(content.created_at),
+      '更新时间': this.dateToTimestamp(content.updated_at),
+      '记录来源': '本地'
+    }
+
+    // 如果提供了可用字段列表，只返回存在的字段
+    if (availableFields && Array.isArray(availableFields)) {
+      const filteredFields = {}
+      const availableFieldNames = new Set(availableFields.map(f => f.field_name))
+      
+      for (const [key, value] of Object.entries(allFields)) {
+        if (availableFieldNames.has(key)) {
+          filteredFields[key] = value
+        }
       }
+      return { fields: filteredFields }
+    }
+
+    return {
+      fields: allFields
     }
   }
 
@@ -375,6 +402,7 @@ export class FeishuAdapter {
     return {
       id: fields['记录ID'] ? parseInt(fields['记录ID'], 10) : null,
       title: title,
+      summary: this.extractText(fields['摘要'] || fields['Summary']),
       type: typeMap[rawType] || 'note',
       content: content,
       source: this.extractText(fields['来源'] || fields['Source'] || fields['Url'] || fields['链接']),

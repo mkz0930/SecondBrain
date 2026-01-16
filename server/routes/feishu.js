@@ -221,6 +221,17 @@ router.post('/sync', async (req, res) => {
     )
 
     if (!config) {
+      console.warn(`[FeishuAPI] Sync failed: Config not found or disabled for user ${req.user.id}`)
+      // Check if config exists but is disabled
+      const disabledConfig = await queryOne(
+        'SELECT * FROM feishu_sync_config WHERE user_id = ?',
+        [req.user.id]
+      )
+      if (disabledConfig) {
+        console.warn(`[FeishuAPI] Config exists but enabled=${disabledConfig.enabled}`)
+      } else {
+        console.warn(`[FeishuAPI] No config found for user ${req.user.id}`)
+      }
       return res.status(400).json({ error: 'Feishu sync not configured or disabled' })
     }
 

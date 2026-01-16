@@ -13,8 +13,21 @@ Set-Location $ProjectRoot
 # Check if nvm exists and switch Node version
 if (Get-Command nvm -ErrorAction SilentlyContinue) {
     if (Test-Path ".nvmrc") {
-        Write-Host "Detected .nvmrc file, switching Node version..." -ForegroundColor Yellow
-        nvm use 20.19.6
+        $RequiredVersion = "20.19.6"
+        $ShouldSwitch = $true
+        
+        if (Get-Command node -ErrorAction SilentlyContinue) {
+            $CurrentVersion = $(node -v).TrimStart('v')
+            if ($CurrentVersion -eq $RequiredVersion) {
+                $ShouldSwitch = $false
+                Write-Host "Node version is already $RequiredVersion" -ForegroundColor Green
+            }
+        }
+        
+        if ($ShouldSwitch) {
+            Write-Host "Detected .nvmrc file, switching Node version..." -ForegroundColor Yellow
+            nvm use $RequiredVersion
+        }
     }
 }
 

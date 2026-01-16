@@ -106,30 +106,62 @@ async function handleLogin() {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: radial-gradient(circle at top right, #1e1b4b 0%, #0f172a 100%);
   padding: 20px;
+  position: relative;
+  overflow: hidden;
+}
+
+/* Background effects */
+.login-container::before {
+  content: "";
+  position: absolute;
+  width: 600px;
+  height: 600px;
+  background: radial-gradient(circle, rgba(59, 130, 246, 0.1), transparent 70%);
+  top: -200px;
+  right: -200px;
+  border-radius: 50%;
+}
+
+.login-container::after {
+  content: "";
+  position: absolute;
+  width: 500px;
+  height: 500px;
+  background: radial-gradient(circle, rgba(139, 92, 246, 0.1), transparent 70%);
+  bottom: -100px;
+  left: -100px;
+  border-radius: 50%;
 }
 
 .login-card {
-  background: white;
-  border-radius: 12px;
-  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.1);
+  background: rgba(30, 41, 59, 0.7);
+  backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 24px;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
   padding: 40px;
   width: 100%;
   max-width: 400px;
+  position: relative;
+  z-index: 1;
 }
 
 .login-title {
   font-size: 28px;
   font-weight: bold;
-  color: #333;
+  color: #fff;
   text-align: center;
   margin-bottom: 8px;
+  background: linear-gradient(135deg, #fff 0%, #94a3b8 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
 }
 
 .login-subtitle {
   font-size: 14px;
-  color: #666;
+  color: #94a3b8;
   text-align: center;
   margin-bottom: 32px;
 }
@@ -146,51 +178,58 @@ async function handleLogin() {
   display: block;
   font-size: 14px;
   font-weight: 500;
-  color: #333;
+  color: #cbd5e1;
   margin-bottom: 8px;
 }
 
 .form-group input {
   width: 100%;
   padding: 12px;
-  border: 1px solid #ddd;
-  border-radius: 6px;
+  background: rgba(15, 23, 42, 0.6);
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  border-radius: 12px;
   font-size: 14px;
-  transition: border-color 0.3s;
+  transition: all 0.3s;
   box-sizing: border-box;
+  color: #fff;
 }
 
 .form-group input:focus {
   outline: none;
-  border-color: #667eea;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
+  background: rgba(15, 23, 42, 0.8);
 }
 
 .error-message {
-  color: #e74c3c;
+  color: #f87171;
   font-size: 14px;
   margin-bottom: 16px;
   padding: 10px;
-  background: #ffe6e6;
-  border-radius: 6px;
+  background: rgba(239, 68, 68, 0.1);
+  border: 1px solid rgba(239, 68, 68, 0.2);
+  border-radius: 8px;
   text-align: center;
 }
 
 .login-button {
   width: 100%;
   padding: 12px;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%);
   color: white;
   border: none;
-  border-radius: 6px;
+  border-radius: 12px;
   font-size: 16px;
-  font-weight: 500;
+  font-weight: 600;
   cursor: pointer;
-  transition: transform 0.2s, box-shadow 0.2s;
+  transition: all 0.3s;
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
 }
 
 .login-button:hover:not(:disabled) {
   transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+  box-shadow: 0 8px 20px rgba(59, 130, 246, 0.4);
+  filter: brightness(1.1);
 }
 
 .login-button:disabled {
@@ -211,15 +250,22 @@ async function handleLogin() {
   left: 0;
   right: 0;
   height: 1px;
-  background: #ddd;
+  background: rgba(148, 163, 184, 0.2);
 }
 
 .divider span {
   position: relative;
-  background: white;
+  background: #1e293b; /* Match card bg roughly but solid for text cover */
   padding: 0 16px;
-  color: #999;
+  color: #64748b;
   font-size: 14px;
+  /* Since card is semi-transparent, this trick is tricky. 
+     Better to make background transparent and add a small blur or solid color matching theme */
+  background-color: transparent; 
+  /* To hide line behind text properly on transparent bg is hard without solid bg.
+     Let's just use text-shadow or small background patch */
+  background: #1e232e; 
+  border-radius: 4px;
 }
 
 .wechat-login {
@@ -229,18 +275,19 @@ async function handleLogin() {
 .wechat-button {
   width: 100%;
   padding: 12px;
-  background: #09bb07;
-  color: white;
-  border: none;
-  border-radius: 6px;
+  background: rgba(16, 185, 129, 0.1);
+  color: #34d399;
+  border: 1px solid rgba(16, 185, 129, 0.2);
+  border-radius: 12px;
   font-size: 16px;
   font-weight: 500;
   cursor: pointer;
-  transition: background 0.3s;
+  transition: all 0.3s;
 }
 
 .wechat-button:hover:not(:disabled) {
-  background: #08a006;
+  background: rgba(16, 185, 129, 0.2);
+  border-color: rgba(16, 185, 129, 0.4);
 }
 
 .wechat-button:disabled {

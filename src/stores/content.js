@@ -23,7 +23,7 @@ export const useContentStore = defineStore('content', () => {
   })
 
   // 获取内容列表
-  async function fetchContents() {
+  async function fetchContents(append = false) {
     loading.value = true
     error.value = null
     try {
@@ -33,13 +33,32 @@ export const useContentStore = defineStore('content', () => {
         limit: pagination.value.limit
       }
       const response = await api.get('/api/contents', { params })
-      contents.value = response.data.data
+      
+      if (append) {
+        // 去重合并，防止重复key
+        const newItems = response.data.data.filter(item => 
+          !contents.value.some(existing => existing.id === item.id)
+        )
+        contents.value = [...contents.value, ...newItems]
+      } else {
+        contents.value = response.data.data
+      }
+      
       pagination.value.total = response.data.total
     } catch (err) {
       error.value = err.message
       console.error('Failed to fetch contents:', err)
     } finally {
       loading.value = false
+    }
+  }
+
+  // 加载更多
+  async function loadMore() {
+    const totalPages = Math.ceil(pagination.value.total / pagination.value.limit)
+    if (pagination.value.page < totalPages) {
+      pagination.value.page++
+      await fetchContents(true)
     }
   }
 
@@ -167,6 +186,7 @@ export const useContentStore = defineStore('content', () => {
     toggleFavorite,
     recordAccess,
     updateFilters,
-    updatePage
+    updatePage,
+    loadMore
   }
 })

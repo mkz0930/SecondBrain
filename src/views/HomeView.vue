@@ -23,14 +23,6 @@
           title="同步飞书数据">
           {{ isSyncing ? '同步中...' : '同步飞书' }}
         </button>
-        <!-- <button 
-          class="btn-secondary" 
-          @click="handleResetPull" 
-          :disabled="isSyncing"
-          title="清空本地并拉取飞书数据"
-          style="border-color: #ef4444; color: #ef4444;">
-          重置并拉取
-        </button> -->
         <button class="btn-primary" @click="goToNew">+ 新建内容</button>
         <button class="btn-secondary" @click="handleLogout">登出</button>
       </div>
@@ -103,62 +95,76 @@
         <div v-if="loading" class="loading">加载中...</div>
         <div v-else-if="error" class="error">{{ error }}</div>
         <div v-else-if="contents.length === 0" class="empty">暂无内容</div>
-        <div v-else class="content-list">
-          <div 
-            v-for="content in contents" 
-            :key="content.id"
-            class="content-card"
-            @click="goToDetail(content.id)">
-            <div class="card-header">
-              <h3>{{ content.title }}</h3>
-              <button 
-                class="favorite-btn"
-                :class="{ active: content.is_favorite }"
-                @click.stop="toggleFavorite(content.id)">
-                {{ content.is_favorite ? '★' : '☆' }}
-              </button>
+        <div v-else class="timeline-view">
+          <div v-for="group in groupedContents" :key="group.date" class="timeline-group">
+            <div class="timeline-header">
+              <span class="timeline-date">{{ group.displayDate }}</span>
+              <span class="timeline-count">{{ group.count }}条记录</span>
             </div>
-            <div class="card-meta">
-              <span class="type-badge">{{ getTypeName(content.type) }}</span>
-              <span class="rating" v-if="getRating(content) > 0">
-                {{ '★'.repeat(getRating(content)) }}{{ '☆'.repeat(5 - getRating(content)) }}
-              </span>
-              <span class="visit-count">访问 {{ content.access_count || 0 }} 次</span>
-            </div>
-            <div class="card-content">
-              <div class="content-text">{{ truncate(content.content) }}</div>
-              <div v-if="content.source" class="content-source">{{ content.source }}</div>
-            </div>
-            <div class="card-tags" v-if="content.tags && content.tags.length > 0">
-              <span 
-                v-for="tag in content.tags" 
-                :key="tag.id"
-                class="tag"
-                :style="{ backgroundColor: tag.color || '#e4e7ed' }">
-                {{ tag.name }}
-              </span>
-            </div>
-            <div class="card-footer">
-              <div class="time-info">
-                <div class="time-item">创建时间: {{ formatDateTime(content.created_at) }}</div>
-                <div v-if="content.updated_at" class="time-item update-time">更新时间: {{ formatDateTime(content.updated_at) }}</div>
+            
+            <div class="timeline-items">
+              <div 
+                v-for="content in group.items" 
+                :key="content.id"
+                class="timeline-item">
+                <div class="timeline-marker"></div>
+                <div class="content-card" @click="goToDetail(content.id)">
+                  <div class="card-header">
+                    <h3>{{ content.title }}</h3>
+                    <button 
+                      class="favorite-btn"
+                      :class="{ active: content.is_favorite }"
+                      @click.stop="toggleFavorite(content.id)">
+                      {{ content.is_favorite ? '★' : '☆' }}
+                    </button>
+                  </div>
+                  <div class="card-meta">
+                    <span class="type-badge">{{ getTypeName(content.type) }}</span>
+                    <span class="rating" v-if="getRating(content) > 0">
+                      {{ '★'.repeat(getRating(content)) }}{{ '☆'.repeat(5 - getRating(content)) }}
+                    </span>
+                    <span class="visit-count">访问 {{ content.access_count || 0 }} 次</span>
+                  </div>
+                  <div class="card-content">
+                    <div v-if="content.summary" class="content-summary">
+                      {{ content.summary }}
+                    </div>
+                    <div class="content-text">{{ truncate(content.content) }}</div>
+                    <div v-if="content.source" class="content-source">
+                      <span class="source-label">URL:</span> {{ content.source }}
+                    </div>
+                  </div>
+                  <div class="card-tags" v-if="content.tags && content.tags.length > 0">
+                    <span 
+                      v-for="tag in content.tags" 
+                      :key="tag.id"
+                      class="tag"
+                      :style="{ backgroundColor: tag.color || '#e4e7ed', color: '#1a1d24' }">
+                      {{ tag.name }}
+                    </span>
+                  </div>
+                  <div class="card-footer">
+                    <div class="time-info">
+                      <div class="time-item">创建时间: {{ formatDateTime(content.created_at) }}</div>
+                      <div v-if="content.updated_at" class="time-item update-time">更新时间: {{ formatDateTime(content.updated_at) }}</div>
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
         </div>
 
-        <div v-if="pagination.total > pagination.limit" class="pagination">
+        <div v-if="hasMore" class="load-more-container">
           <button 
-            :disabled="pagination.page === 1"
-            @click="goToPage(pagination.page - 1)">
-            上一页
+            class="btn-load-more"
+            @click="handleLoadMore"
+            :disabled="loading">
+            {{ loading ? '加载中...' : '加载更多' }}
           </button>
-          <span>第 {{ pagination.page }} 页 / 共 {{ totalPages }} 页</span>
-          <button 
-            :disabled="pagination.page >= totalPages"
-            @click="goToPage(pagination.page + 1)">
-            下一页
-          </button>
+        </div>
+        <div v-else-if="contents.length > 0" class="no-more">
+          没有更多内容了
         </div>
       </main>
     </div>
@@ -195,6 +201,37 @@ const filters = computed(() => contentStore.filters)
 
 const totalPages = computed(() => {
   return Math.ceil(pagination.value.total / pagination.value.limit)
+})
+
+const hasMore = computed(() => {
+  return pagination.value.page < totalPages.value
+})
+
+// Group contents by date
+const groupedContents = computed(() => {
+  const groups = {}
+  contents.value.forEach(content => {
+    const dateStr = formatDate(content.created_at)
+    if (!groups[dateStr]) {
+      const dateObj = new Date(content.created_at)
+      const displayDate = dateObj.toLocaleDateString('zh-CN', { 
+        year: 'numeric', 
+        month: 'long', 
+        day: 'numeric', 
+        weekday: 'long' 
+      })
+
+      groups[dateStr] = {
+        date: dateStr,
+        displayDate,
+        items: [],
+        count: 0
+      }
+    }
+    groups[dateStr].items.push(content)
+    groups[dateStr].count++
+  })
+  return Object.values(groups).sort((a, b) => b.date.localeCompare(a.date))
 })
 
 onMounted(() => {
@@ -234,8 +271,8 @@ async function toggleFavorite(id) {
   }
 }
 
-function goToPage(page) {
-  contentStore.updatePage(page)
+async function handleLoadMore() {
+  await contentStore.loadMore()
 }
 
 function truncate(text) {
@@ -260,40 +297,8 @@ async function handleLogout() {
   } catch (error) {
     console.error('Logout error:', error)
   } finally {
-    // 无论是否成功，都清除本地认证信息
     userStore.clearAuth()
     router.push('/login')
-  }
-}
-
-async function handleResetPull() {
-  console.log('Reset Pull button clicked') // Debug log
-  if (!confirm('确定要清空本地所有数据，并强制从飞书拉取最新数据吗？此操作不可逆！')) {
-    return
-  }
-
-  // 暂时移除 isSyncing 检查，防止卡死
-  // if (isSyncing.value) return
-  
-  isSyncing.value = true
-  try {
-    console.log('Sending reset-pull request...')
-    // 调用重置并拉取接口
-    await api.post('/api/feishu/reset-pull')
-    
-    alert('请求已发送，正在后台处理。由于是全量拉取，可能需要较长时间，请稍后刷新页面。')
-    
-    // 给后端更多时间
-    await new Promise(resolve => setTimeout(resolve, 3000))
-
-    // 尝试刷新列表
-    await contentStore.fetchContents()
-    await tagStore.fetchTags()
-  } catch (err) {
-    console.error('Reset pull failed:', err)
-    alert('操作失败: ' + (err.response?.data?.message || err.message))
-  } finally {
-    isSyncing.value = false
   }
 }
 
@@ -302,22 +307,15 @@ async function handleSync() {
   
   isSyncing.value = true
   try {
-    // 默认执行双向同步，确保两端数据一致
     await api.post('/api/feishu/sync', { direction: 'both' })
-    
-    // 给后端一点时间进行同步处理
     await new Promise(resolve => setTimeout(resolve, 2000))
-
-    // 同步完成后刷新列表，显示最新数据
+    // 同步完成后刷新本地内容列表和标签
     await contentStore.fetchContents()
-    // 也可以刷新标签
     await tagStore.fetchTags()
-    
-    // 可选：显示更友好的通知，这里先用 alert 简单处理，或者不做强提示，按钮状态变化即是反馈
-    // alert('同步完成') 
   } catch (err) {
     console.error('Sync failed:', err)
-    alert('同步失败: ' + (err.response?.data?.message || err.message))
+    const errorMessage = err.response?.data?.error || err.response?.data?.message || err.message
+    alert('同步失败: ' + errorMessage)
   } finally {
     isSyncing.value = false
   }
@@ -327,228 +325,260 @@ async function handleSync() {
 <style scoped>
 .home-view {
   min-height: 100vh;
-  --bg: #eef2ff;
-  --surface: rgba(255, 255, 255, 0.92);
-  --surface-strong: #ffffff;
-  --ink: #0f172a;
-  --muted: #64748b;
-  --accent: #2563eb;
-  --accent-strong: #1d4ed8;
-  --accent-2: #0ea5e9;
-  --accent-soft: rgba(37, 99, 235, 0.12);
-  --danger: #ef4444;
-  --shadow: 0 20px 45px rgba(15, 23, 42, 0.12);
-  --shadow-soft: 0 12px 24px rgba(15, 23, 42, 0.08);
-  background:
-    radial-gradient(900px 520px at 10% -15%, rgba(14, 165, 233, 0.18), transparent 60%),
-    radial-gradient(700px 480px at 90% -10%, rgba(37, 99, 235, 0.2), transparent 55%),
-    linear-gradient(180deg, #f8fafc 0%, #eef2ff 45%, #f8fafc 100%);
-  font-family: "Source Han Sans SC", "HarmonyOS Sans SC", "PingFang SC", "Microsoft YaHei", sans-serif;
-  color: var(--ink);
+  background: radial-gradient(circle at top left, #1e293b 0%, var(--bg-body) 40%),
+              radial-gradient(circle at bottom right, #1e1b4b 0%, var(--bg-body) 40%);
+  color: var(--text-primary);
   position: relative;
-  isolation: isolate;
   overflow-x: hidden;
 }
 
-.home-view::before,
+/* Background Accents */
+.home-view::before {
+  content: "";
+  position: absolute;
+  top: -100px;
+  right: -100px;
+  width: 400px;
+  height: 400px;
+  background: radial-gradient(circle, rgba(59, 130, 246, 0.15), transparent 70%);
+  border-radius: 50%;
+  pointer-events: none;
+  z-index: 0;
+}
+
 .home-view::after {
   content: "";
   position: absolute;
-  border-radius: 999px;
-  z-index: 0;
+  bottom: -100px;
+  left: -100px;
+  width: 500px;
+  height: 500px;
+  background: radial-gradient(circle, rgba(139, 92, 246, 0.1), transparent 70%);
+  border-radius: 50%;
   pointer-events: none;
-}
-
-.home-view::before {
-  width: 420px;
-  height: 420px;
-  top: -140px;
-  right: -140px;
-  background: radial-gradient(circle, rgba(56, 189, 248, 0.35), transparent 70%);
-}
-
-.home-view::after {
-  width: 520px;
-  height: 520px;
-  bottom: -240px;
-  left: -200px;
-  background: radial-gradient(circle, rgba(59, 130, 246, 0.28), transparent 70%);
+  z-index: 0;
 }
 
 .header {
-  background: rgba(255, 255, 255, 0.82);
-  padding: 22px 40px;
-  border-bottom: 1px solid rgba(148, 163, 184, 0.25);
-  box-shadow: 0 12px 26px rgba(15, 23, 42, 0.08);
+  background: rgba(26, 29, 36, 0.8);
+  padding: 20px 40px;
+  border-bottom: 1px solid var(--border-color);
+  box-shadow: 0 4px 30px rgba(0, 0, 0, 0.1);
+  backdrop-filter: blur(12px);
   display: flex;
   justify-content: space-between;
   align-items: center;
   gap: 24px;
   position: sticky;
   top: 0;
-  z-index: 2;
-  backdrop-filter: blur(14px);
-  animation: floatIn 0.6s ease both;
+  z-index: 100;
 }
 
 .header h1 {
-  font-size: 28px;
-  font-weight: 700;
-  letter-spacing: 0.5px;
+  font-size: 24px;
   margin: 0;
-  color: var(--ink);
-  font-family: "Source Han Serif SC", "Songti SC", "STSong", serif;
+  background: linear-gradient(135deg, var(--text-primary), var(--text-secondary));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  font-weight: 700;
 }
 
 .header-actions {
   display: flex;
   gap: 12px;
   align-items: center;
-  flex-wrap: wrap;
-  justify-content: flex-end;
 }
 
 .search-input {
-  width: 320px;
-  max-width: 100%;
-  padding: 10px 14px;
-  border-radius: 14px;
-  border: 1px solid rgba(148, 163, 184, 0.35);
-  background: rgba(255, 255, 255, 0.9);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.8), 0 6px 14px rgba(15, 23, 42, 0.06);
-  transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
-  color: var(--ink);
-}
-
-.search-input::placeholder {
-  color: #94a3b8;
-}
-
-.search-input:focus {
-  outline: none;
-  border-color: rgba(37, 99, 235, 0.6);
-  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.18), 0 8px 18px rgba(15, 23, 42, 0.08);
-  transform: translateY(-1px);
+  width: 300px;
+  background: var(--bg-surface-hover);
+  border: 1px solid var(--border-color);
+  color: var(--text-primary);
 }
 
 .main-content {
   display: grid;
-  grid-template-columns: 260px minmax(0, 1fr);
+  grid-template-columns: 260px 1fr;
   max-width: 1400px;
   margin: 0 auto;
-  padding: 28px 40px 40px;
-  gap: 28px;
+  padding: 30px 40px;
+  gap: 30px;
   position: relative;
   z-index: 1;
 }
 
 .sidebar {
-  width: 260px;
-  flex-shrink: 0;
   position: sticky;
-  top: 110px;
+  top: 100px;
   align-self: flex-start;
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 20px;
 }
 
 .filter-section {
-  background: var(--surface);
-  border-radius: 16px;
-  padding: 18px;
-  border: 1px solid rgba(148, 163, 184, 0.2);
-  box-shadow: var(--shadow-soft);
-  animation: floatIn 0.6s ease both;
+  background: var(--bg-surface);
+  border-radius: var(--radius-lg);
+  padding: 20px;
+  border: 1px solid var(--border-color);
 }
 
 .filter-section h3 {
-  font-size: 13px;
-  margin: 0 0 12px;
-  color: var(--muted);
+  font-size: 12px;
+  margin: 0 0 16px;
+  color: var(--text-tertiary);
   text-transform: uppercase;
-  letter-spacing: 1.6px;
+  letter-spacing: 1px;
 }
 
 .filter-item {
-  padding: 10px 12px;
-  margin-bottom: 6px;
-  border-radius: 12px;
+  padding: 8px 12px;
+  margin-bottom: 4px;
+  border-radius: var(--radius-md);
   cursor: pointer;
-  transition: all 0.2s ease;
-  color: var(--muted);
-  border: 1px solid transparent;
+  color: var(--text-secondary);
+  transition: all 0.2s;
+  font-size: 14px;
   display: flex;
-  align-items: center;
   justify-content: space-between;
 }
 
 .filter-item:hover {
-  background-color: rgba(37, 99, 235, 0.08);
-  color: var(--ink);
+  background: var(--bg-surface-hover);
+  color: var(--text-primary);
 }
 
 .filter-item.active {
-  background: linear-gradient(135deg, rgba(37, 99, 235, 0.18), rgba(14, 165, 233, 0.18));
-  color: var(--accent-strong);
-  border-color: rgba(37, 99, 235, 0.35);
+  background: rgba(59, 130, 246, 0.15);
+  color: var(--accent-primary);
   font-weight: 600;
 }
 
 .content-area {
-  flex: 1;
   min-width: 0;
-  position: relative;
-  z-index: 1;
 }
 
 .loading, .error, .empty {
   text-align: center;
-  padding: 44px;
-  background: var(--surface);
-  border-radius: 18px;
-  border: 1px solid rgba(148, 163, 184, 0.2);
-  box-shadow: var(--shadow-soft);
+  padding: 60px;
+  background: var(--bg-surface);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border-color);
+  color: var(--text-secondary);
 }
 
 .error {
   color: var(--danger);
-  background: rgba(254, 226, 226, 0.85);
-  border-color: rgba(239, 68, 68, 0.35);
+  background: rgba(239, 68, 68, 0.1);
+  border-color: rgba(239, 68, 68, 0.2);
 }
 
-.content-list {
+/* Timeline */
+.timeline-view {
+  position: relative;
+  padding-left: 24px;
+}
+
+.timeline-view::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 7px;
+  width: 2px;
+  background: linear-gradient(to bottom, var(--accent-primary), transparent);
+  opacity: 0.3;
+  z-index: 0;
+}
+
+.timeline-group {
+  margin-bottom: 40px;
+  position: relative;
+}
+
+.timeline-header {
+  margin-bottom: 24px;
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  position: sticky;
+  top: 85px;
+  z-index: 10;
+  background: rgba(15, 23, 42, 0.95); /* Match body bg somewhat */
+  backdrop-filter: blur(8px);
+  padding: 16px 0 16px 20px;
+  border-bottom: 1px solid var(--border-color);
+  margin-left: -24px;
+  width: calc(100% + 24px);
+}
+
+.timeline-header::before {
+  content: '';
+  position: absolute;
+  left: 1px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 14px;
+  height: 14px;
+  background: var(--accent-primary);
+  border: 3px solid #0f172a; /* Match background color */
+  border-radius: 50%;
+  z-index: 11;
+  box-shadow: 0 0 10px var(--accent-primary);
+}
+
+.timeline-date {
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--text-primary);
+  letter-spacing: -0.5px;
+}
+
+.timeline-count {
+  font-size: 13px;
+  color: var(--text-tertiary);
+}
+
+.timeline-items {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
   gap: 24px;
 }
 
 .content-card {
-  background: var(--surface-strong);
-  border-radius: 18px;
-  padding: 22px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  padding: 24px;
   cursor: pointer;
-  transition: transform 0.3s ease, box-shadow 0.3s ease, border-color 0.3s ease;
-  box-shadow: var(--shadow-soft);
-  border: 1px solid rgba(148, 163, 184, 0.2);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   position: relative;
   overflow: hidden;
-  animation: cardIn 0.6s ease both;
+  display: flex;
+  flex-direction: column;
 }
 
 .content-card:hover {
-  transform: translateY(-6px);
-  box-shadow: var(--shadow);
-  border-color: rgba(37, 99, 235, 0.35);
+  transform: translateY(-4px);
+  border-color: var(--accent-primary);
+  box-shadow: 0 10px 30px -10px rgba(59, 130, 246, 0.3);
 }
 
-.content-card::before {
+/* Glass glow effect on hover */
+.content-card::after {
   content: "";
   position: absolute;
-  inset: 0 0 auto 0;
-  height: 4px;
-  background: linear-gradient(90deg, rgba(37, 99, 235, 0.9), rgba(14, 165, 233, 0.6));
-  opacity: 0.6;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--accent-primary), transparent);
+  opacity: 0;
+  transition: opacity 0.3s;
+}
+
+.content-card:hover::after {
+  opacity: 1;
 }
 
 .card-header {
@@ -561,290 +591,182 @@ async function handleSync() {
 
 .card-header h3 {
   font-size: 18px;
-  color: var(--ink);
+  line-height: 1.5;
   margin: 0;
   flex: 1;
-  line-height: 1.4;
   display: -webkit-box;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
-  text-overflow: ellipsis;
-  word-break: break-word;
-  padding-right: 8px;
+  color: var(--text-primary);
 }
 
 .favorite-btn {
-  flex-shrink: 0;
-  font-size: 18px;
-  background: rgba(15, 23, 42, 0.04);
-  border: 1px solid rgba(148, 163, 184, 0.25);
-  width: 34px;
-  height: 34px;
-  border-radius: 50%;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  color: #94a3b8;
-  transition: color 0.2s ease, border-color 0.2s ease, transform 0.2s ease;
+  background: transparent;
+  padding: 4px;
+  color: var(--text-tertiary);
+  font-size: 20px;
 }
 
-.favorite-btn.active,
-.favorite-btn:hover {
-  color: #f59e0b;
-  border-color: rgba(245, 158, 11, 0.4);
-  transform: translateY(-1px);
+.favorite-btn.active {
+  color: var(--warning);
 }
 
 .card-meta {
   display: flex;
   gap: 12px;
-  margin-bottom: 12px;
   align-items: center;
-  flex-wrap: wrap;
+  margin-bottom: 16px;
+  font-size: 13px;
+  color: var(--text-secondary);
 }
 
 .type-badge {
-  display: inline-block;
-  padding: 4px 12px;
-  background: rgba(37, 99, 235, 0.12);
-  border-radius: 999px;
+  padding: 4px 10px;
+  background: rgba(59, 130, 246, 0.15);
+  color: var(--accent-primary);
+  border-radius: var(--radius-full);
   font-size: 12px;
-  color: var(--accent-strong);
   font-weight: 600;
 }
 
 .rating {
-  color: #f59e0b;
-  font-size: 14px;
+  color: var(--warning);
+  letter-spacing: 2px;
 }
 
-.source-badge {
-  display: inline-block;
+.visit-count {
+  margin-left: auto;
   font-size: 12px;
-  color: var(--muted);
-  background: rgba(148, 163, 184, 0.1);
-  padding: 2px 8px;
-  border-radius: 4px;
-  max-width: 150px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  vertical-align: middle;
+  color: var(--text-tertiary);
 }
 
 .card-content {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  color: #475569;
-  line-height: 1.6;
+  flex: 1;
+  margin-bottom: 16px;
+}
+
+.content-summary {
+  background: rgba(59, 130, 246, 0.05);
+  border-left: 3px solid var(--accent-secondary);
+  padding: 12px;
+  border-radius: 4px;
+  font-size: 13px;
+  color: var(--text-secondary);
   margin-bottom: 12px;
-  min-height: 60px;
+  line-height: 1.6;
 }
 
 .content-text {
-  width: 100%;
-  overflow-wrap: break-word;
-  word-wrap: break-word;
-  white-space: pre-wrap;
+  color: var(--text-secondary);
+  font-size: 14px;
+  line-height: 1.6;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.content-source {
+  margin-top: 12px;
+  font-size: 12px;
+  color: var(--accent-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  background: rgba(59, 130, 246, 0.1);
+  padding: 4px 8px;
+  border-radius: 4px;
+  display: inline-block;
+  max-width: 100%;
+}
+
+.source-label {
+  color: var(--text-tertiary);
+  margin-right: 4px;
 }
 
 .card-tags {
-  margin-bottom: 12px;
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
-}
-
-.tag {
-  padding: 4px 10px;
-  border-radius: 999px;
-  font-size: 12px;
-  color: #1f2937;
-  box-shadow: inset 0 0 0 1px rgba(148, 163, 184, 0.2);
+  margin-bottom: 16px;
 }
 
 .card-footer {
-  padding-top: 14px;
-  border-top: 1px solid rgba(148, 163, 184, 0.2);
+  padding-top: 16px;
+  border-top: 1px solid var(--border-color);
+  font-size: 12px;
+  color: var(--text-tertiary);
 }
 
 .time-info {
   display: flex;
   justify-content: space-between;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 8px;
-  font-size: 12px;
-  color: #94a3b8;
 }
 
-.visit-count {
-  font-size: 12px;
-  color: var(--muted);
-  margin-left: auto;
-}
-
-.content-source {
-  font-size: 12px;
-  color: var(--muted);
-  word-break: break-all;
-  opacity: 0.8;
-}
-
-.pagination {
+.load-more-container {
   display: flex;
   justify-content: center;
-  align-items: center;
-  gap: 16px;
-  margin-top: 24px;
-  padding: 18px;
-  background: var(--surface);
-  border-radius: 16px;
-  border: 1px solid rgba(148, 163, 184, 0.2);
-  box-shadow: var(--shadow-soft);
+  margin-top: 40px;
+  padding-bottom: 40px;
 }
 
-.pagination button {
-  padding: 8px 14px;
-  border-radius: 10px;
-  border: 1px solid rgba(148, 163, 184, 0.25);
-  background: #fff;
-  color: var(--ink);
+.btn-load-more {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-color);
+  color: var(--text-primary);
+  padding: 12px 32px;
+  border-radius: var(--radius-full);
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: all 0.2s;
+  font-size: 14px;
+  font-weight: 500;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
 }
 
-.pagination button:hover:not(:disabled) {
-  border-color: rgba(37, 99, 235, 0.4);
-  color: var(--accent-strong);
-  transform: translateY(-1px);
+.btn-load-more:hover:not(:disabled) {
+  background: var(--bg-surface-hover);
+  border-color: var(--accent-primary);
+  color: var(--accent-primary);
+  transform: translateY(-2px);
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
 }
 
-.pagination button:disabled {
-  opacity: 0.5;
+.btn-load-more:disabled {
+  opacity: 0.7;
   cursor: not-allowed;
 }
 
-.btn-primary {
-  padding: 10px 18px;
-  background: linear-gradient(135deg, var(--accent), var(--accent-2));
-  color: #fff;
-  border: none;
-  border-radius: 12px;
-  cursor: pointer;
+.no-more {
+  text-align: center;
+  margin-top: 40px;
+  padding-bottom: 40px;
+  color: var(--text-tertiary);
   font-size: 14px;
-  font-weight: 600;
-  box-shadow: 0 14px 26px rgba(37, 99, 235, 0.25);
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  position: relative;
 }
 
-.btn-primary:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 18px 34px rgba(37, 99, 235, 0.3);
-}
-
-.btn-secondary {
-  padding: 9px 16px;
-  background: rgba(255, 255, 255, 0.9);
-  color: var(--muted);
-  border: 1px solid rgba(148, 163, 184, 0.35);
-  border-radius: 12px;
-  cursor: pointer;
-  font-size: 14px;
-  transition: all 0.2s ease;
-}
-
-.btn-secondary:hover {
-  color: var(--accent-strong);
-  border-color: rgba(37, 99, 235, 0.4);
-  transform: translateY(-1px);
-}
-
-.sync-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  min-width: 100px;
-  justify-content: center;
-}
-
-.sync-btn .icon {
-  font-size: 16px;
-}
-
-@keyframes floatIn {
-  from {
-    opacity: 0;
-    transform: translateY(-8px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-@keyframes cardIn {
-  from {
-    opacity: 0;
-    transform: translateY(12px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-.content-card:nth-child(1) { animation-delay: 0.05s; }
-.content-card:nth-child(2) { animation-delay: 0.1s; }
-.content-card:nth-child(3) { animation-delay: 0.15s; }
-.content-card:nth-child(4) { animation-delay: 0.2s; }
-.content-card:nth-child(5) { animation-delay: 0.25s; }
-.content-card:nth-child(6) { animation-delay: 0.3s; }
-
-@media (max-width: 1100px) {
-  .main-content {
-    grid-template-columns: 1fr;
-  }
-
-  .sidebar {
-    width: 100%;
-    position: static;
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-  }
+.no-more::before,
+.no-more::after {
+  content: "";
+  display: inline-block;
+  width: 40px;
+  height: 1px;
+  background: var(--border-color);
+  vertical-align: middle;
+  margin: 0 12px;
 }
 
 @media (max-width: 900px) {
-  .header {
-    flex-direction: column;
-    align-items: flex-start;
-  }
-
-  .header-actions {
-    width: 100%;
-    justify-content: flex-start;
-  }
-
-  .search-input {
-    width: 100%;
-  }
-
   .main-content {
-    padding: 24px;
+    grid-template-columns: 1fr;
   }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .content-card,
-  .header,
-  .filter-section,
-  .btn-primary,
-  .btn-secondary {
-    animation: none;
-    transition: none;
+  
+  .sidebar {
+    position: static;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
   }
 }
 </style>

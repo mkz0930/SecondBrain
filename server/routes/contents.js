@@ -1,6 +1,7 @@
 import express from 'express'
 import { query, queryOne, run } from '../models/database.js'
 import { requireUser } from '../middleware/auth.js'
+import { analyzeContent } from '../services/ai-service.js'
 
 const router = express.Router()
 router.use(requireUser)
@@ -181,18 +182,62 @@ router.get('/:id', async (req, res) => {
   }
 })
 
+router.post('/analyze', async (req, res) => {
+  try {
+    const { content } = req.body
+    if (!content) {
+      return res.status(400).json({ error: 'Content is required' })
+    }
+    const result = await analyzeContent(content)
+    if (!result) {
+       return res.status(503).json({ error: 'AI Service unavailable (Check API Key)' })
+    }
+    res.json(result)
+  } catch (error) {
+    console.error('Analyze content error:', error)
+    res.status(500).json({ error: error.message })
+  }
+})
+
 router.post('/', async (req, res) => {
   try {
-    const { type, title, content, source, rating, tags = [] } = req.body
+    let { type, title, content, url, source, rating, tags = [] } = req.body
 
-    if (!type || !title) {
-      return res.status(400).json({ error: 'Type and title are required' })
+    // Auto-Analyze logic
+    const hasUrl = url || (content && /(https?:\/\/[^\s]+)/.test(content));
+    const isTitleUnreasonable = !title || title.trim() === '' || 
+                                ['untitled', 'new note', 'no title', '未命名', '无标题'].includes(title.toLowerCase().trim()) || 
+                                title.length < 2;
+
+    let aiSummary = '';
+    if (hasUrl && isTitleUnreasonable) {
+        try {
+            const aiResult = await analyzeContent(content || '', url);
+            if (aiResult) {
+                if (aiResult.title && aiResult.title !== '无标题') title = aiResult.title;
+                if (aiResult.url) url = aiResult.url;
+                if (!type || type === '其他') type = aiResult.type;
+                if (aiResult.summary) aiSummary = aiResult.summary;
+            }
+        } catch (e) {
+            console.error('Auto-analyze failed:', e);
+        }
     }
 
+    if (!type || !title) {
+      // Fallback if AI failed or no URL
+      return res.status(400).json({ error: 'Type and title are required' })
+    }
+    
+    // Extract summary from body if we want to support manual summary too
+    let { summary } = req.body;
+    // Use AI summary if manual summary is missing
+    if (!summary) summary = aiSummary;
+
     const result = await run(
-      `INSERT INTO contents (user_id, type, title, content, source, rating)
-       VALUES (?, ?, ?, ?, ?, ?)`,
-      [req.user.id, type, title, content || '', source || '', rating || null]
+      `INSERT INTO contents (user_id, type, title, content, summary, url, source, rating)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      [req.user.id, type, title, content || '', summary || null, url || '', source || '', rating || null]
     )
 
     const contentId = result.lastID
@@ -221,8 +266,22 @@ router.post('/', async (req, res) => {
 router.put('/:id', async (req, res) => {
   try {
     const { id } = req.params
-    const { type, title, content, source, rating, tags } = req.body
+    let { type, title, content, summary, url, source, rating, tags } = req.body
 
+    // Auto-Analyze logic for PUT if content/url changed or explicitly requested
+    // (Wait, PUT usually sends what changed. If title is not sent, we keep old title.)
+    // But if user sends a URL update, we might want to re-analyze?
+    // Let's stick to user request: "When retrieved content" -> usually implies creation or fetching.
+    // But if the user edits the content to add a URL, they might expect it to work.
+    // However, PUT semantics are "replace".
+    // Let's only apply this logic if:
+    // 1. url is being updated OR content is being updated with a URL
+    // 2. AND title is missing from the update (so we can't check if it's "unreasonable" easily without fetching old one, but we can assume if they don't send title, they want to keep old one. If they send "New Note", we replace it.)
+    
+    // Simplification: Let's only do it for POST for now as per "When retrieved content" usually implies the initial fetch.
+    // Unless the user explicitly asks for it on update.
+    // But let's leave PUT as is for now to avoid overwriting user edits unexpectedly.
+    
     const existing = await queryOne(
       'SELECT * FROM contents WHERE id = ? AND user_id = ? AND deleted_at IS NULL',
       [id, req.user.id]
@@ -245,6 +304,14 @@ router.put('/:id', async (req, res) => {
     if (content !== undefined) {
       updates.push('content = ?')
       params.push(content)
+    }
+    if (summary !== undefined) {
+      updates.push('summary = ?')
+      params.push(summary)
+    }
+    if (url !== undefined) {
+      updates.push('url = ?')
+      params.push(url)
     }
     if (source !== undefined) {
       updates.push('source = ?')

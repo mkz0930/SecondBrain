@@ -124,6 +124,7 @@ export async function initDatabase() {
               type TEXT NOT NULL,
               title TEXT NOT NULL,
               content TEXT,
+              url TEXT,
               source TEXT,
               rating INTEGER CHECK(rating >= 1 AND rating <= 5),
               is_favorite INTEGER DEFAULT 0,
@@ -177,6 +178,18 @@ export async function initDatabase() {
             )`
           )
 
+          await ensureColumn(
+            database,
+            'contents',
+            'summary',
+            'ALTER TABLE contents ADD COLUMN summary TEXT'
+          )
+          await ensureColumn(
+            database,
+            'contents',
+            'url',
+            'ALTER TABLE contents ADD COLUMN url TEXT'
+          )
           await ensureColumn(
             database,
             'contents',

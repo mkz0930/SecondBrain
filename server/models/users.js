@@ -6,12 +6,8 @@ const DEFAULT_ADMIN_USERNAME = process.env.DEFAULT_ADMIN_USERNAME || 'admin'
 const DEFAULT_ADMIN_PASSWORD = process.env.DEFAULT_ADMIN_PASSWORD || 'admin'
 
 export async function ensureDefaultUser() {
-  let user = await queryOne('SELECT id, openid FROM users WHERE openid = ?', [DEFAULT_OPENID])
-  if (!user) {
-    const result = await run('INSERT INTO users (openid) VALUES (?)', [DEFAULT_OPENID])
-    user = { id: result.lastID, openid: DEFAULT_OPENID }
-  }
-  return user
+  // In single-user mode, default to the admin user so content is visible
+  return ensureDefaultAdmin()
 }
 
 export async function ensureDefaultAdmin() {

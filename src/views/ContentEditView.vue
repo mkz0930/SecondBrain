@@ -161,6 +161,7 @@ onMounted(async () => {
         type: content.type,
         title: content.title,
         content: content.content || '',
+        summary: content.summary || '',
         source: content.source || '',
         rating: content.rating || null,
         tags: content.tags ? content.tags.map(t => t.id) : []
@@ -248,33 +249,39 @@ function cancelNewTag() {
 <style scoped>
 .edit-view {
   min-height: 100vh;
-  background-color: #f5f5f5;
+  background-color: var(--bg-body);
 }
 
 .header {
-  background: white;
+  background: rgba(26, 29, 36, 0.8);
+  backdrop-filter: blur(12px);
   padding: 20px 40px;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 4px 30px rgba(0, 0, 0, 0.1);
   display: flex;
   justify-content: space-between;
   align-items: center;
+  border-bottom: 1px solid var(--border-color);
+  position: sticky;
+  top: 0;
+  z-index: 10;
 }
 
 .form-container {
   max-width: 900px;
   margin: 40px auto;
-  background: white;
-  border-radius: 8px;
+  background: var(--bg-surface);
+  border-radius: var(--radius-lg);
   padding: 40px;
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1);
+  box-shadow: var(--shadow-md);
+  border: 1px solid var(--border-color);
 }
 
 .form-container h1 {
   font-size: 28px;
-  color: #333;
+  color: var(--text-primary);
   margin-bottom: 30px;
   padding-bottom: 20px;
-  border-bottom: 2px solid #f0f0f0;
+  border-bottom: 1px solid var(--border-color);
 }
 
 .content-form {
@@ -291,12 +298,12 @@ function cancelNewTag() {
 
 .form-group label {
   font-weight: 500;
-  color: #333;
+  color: var(--text-secondary);
   font-size: 14px;
 }
 
 .required {
-  color: #f56c6c;
+  color: var(--danger);
 }
 
 .form-group input,
@@ -309,6 +316,8 @@ function cancelNewTag() {
 .form-group textarea {
   resize: vertical;
   font-family: inherit;
+  background-color: var(--bg-surface);
+  color: var(--text-primary);
 }
 
 .rating-selector {
@@ -319,20 +328,29 @@ function cancelNewTag() {
 
 .star {
   font-size: 28px;
-  color: #ddd;
+  color: var(--text-tertiary);
   cursor: pointer;
   transition: color 0.2s;
 }
 
 .star.active,
 .star:hover {
-  color: #ffd700;
+  color: var(--warning);
 }
 
 .clear-rating {
   margin-left: 12px;
   padding: 4px 12px;
   font-size: 12px;
+  background: transparent;
+  color: var(--text-tertiary);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+}
+
+.clear-rating:hover {
+  color: var(--text-primary);
+  border-color: var(--text-primary);
 }
 
 .tag-selector {
@@ -354,17 +372,23 @@ function cancelNewTag() {
   gap: 8px;
   padding: 6px 12px;
   border-radius: 4px;
-  color: white;
+  color: #1a1d24; /* Dark text for light tags */
+  font-size: 13px;
 }
 
 .selected-tags .tag button {
   background: none;
   border: none;
-  color: white;
+  color: #1a1d24;
   font-size: 18px;
   line-height: 1;
   padding: 0;
   cursor: pointer;
+  opacity: 0.6;
+}
+
+.selected-tags .tag button:hover {
+  opacity: 1;
 }
 
 .tag-input {
@@ -380,8 +404,9 @@ function cancelNewTag() {
   display: flex;
   gap: 12px;
   padding: 12px;
-  background-color: #f9f9f9;
-  border-radius: 4px;
+  background-color: var(--bg-surface-hover);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-color);
 }
 
 .new-tag-input input[type="text"] {
@@ -390,17 +415,19 @@ function cancelNewTag() {
 
 .new-tag-input input[type="color"] {
   width: 60px;
-  height: 36px;
-  border: none;
+  height: 40px;
+  padding: 2px;
+  border: 1px solid var(--border-color);
+  background: var(--bg-surface);
   cursor: pointer;
 }
 
 .error-message {
   padding: 12px;
-  background-color: #fef0f0;
-  border: 1px solid #fde2e2;
-  border-radius: 4px;
-  color: #f56c6c;
+  background-color: rgba(239, 68, 68, 0.1);
+  border: 1px solid rgba(239, 68, 68, 0.2);
+  border-radius: var(--radius-md);
+  color: var(--danger);
 }
 
 button:disabled {

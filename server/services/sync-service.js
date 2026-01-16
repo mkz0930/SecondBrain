@@ -123,6 +123,16 @@ export class SyncService {
     }
 
     try {
+      // 获取飞书字段列表，用于过滤
+      let availableFields = null
+      try {
+        const [appToken, tableId] = this.tableId.split('_')
+        availableFields = await this.adapter.getFields(appToken, tableId)
+        this.logger.info(`[SyncService] Fetched ${availableFields.length} fields from Feishu table`)
+      } catch (error) {
+        this.logger.warn('[SyncService] Failed to fetch fields from Feishu, proceeding without filtering:', error.message)
+      }
+
       // 检测本地变更
       const changes = await this.detectLocalChanges()
       stats.total = changes.creates.length + changes.updates.length + changes.deletes.length
@@ -140,7 +150,7 @@ export class SyncService {
       // 处理新增
       if (changes.creates.length > 0) {
         syncState.update(this.userId, { message: `正在推送到飞书 (新增 ${changes.creates.length} 条)...` })
-        const createResult = await this.createFeishuRecords(changes.creates)
+        const createResult = await this.createFeishuRecords(changes.creates, availableFields)
         stats.success += createResult.success
         stats.failed += createResult.failed
         stats.details.push(...createResult.details)
@@ -151,7 +161,7 @@ export class SyncService {
       // 处理更新
       if (changes.updates.length > 0) {
         syncState.update(this.userId, { message: `正在推送到飞书 (更新 ${changes.updates.length} 条)...` })
-        const updateResult = await this.updateFeishuRecords(changes.updates)
+        const updateResult = await this.updateFeishuRecords(changes.updates, availableFields)
         stats.success += updateResult.success
         stats.failed += updateResult.failed
         stats.details.push(...updateResult.details)
@@ -454,7 +464,7 @@ export class SyncService {
   /**
    * 创建飞书记录
    */
-  async createFeishuRecords(contents) {
+  async createFeishuRecords(contents, availableFields = null) {
     const stats = { success: 0, failed: 0, details: [] }
 
     try {
@@ -462,7 +472,7 @@ export class SyncService {
       const recordsToCreate = []
       for (const content of contents) {
         const tags = content.tag_names ? content.tag_names.split(',').map(name => ({ name })) : []
-        const record = this.adapter.convertToFeishuRecord(content, tags)
+        const record = this.adapter.convertToFeishuRecord(content, tags, availableFields)
         recordsToCreate.push(record)
       }
 
@@ -510,7 +520,7 @@ export class SyncService {
   /**
    * 更新飞书记录
    */
-  async updateFeishuRecords(contents) {
+  async updateFeishuRecords(contents, availableFields = null) {
     const stats = { success: 0, failed: 0, details: [] }
 
     for (const content of contents) {
@@ -518,7 +528,7 @@ export class SyncService {
         this.logger.info(`[SyncService] 准备更新飞书记录，内容ID: ${content.id}, 飞书记录ID: ${content.feishu_record_id}`)
         
         const tags = content.tag_names ? content.tag_names.split(',').map(name => ({ name })) : []
-        const record = this.adapter.convertToFeishuRecord(content, tags)
+        const record = this.adapter.convertToFeishuRecord(content, tags, availableFields)
         
         this.logger.info(`[SyncService] 更新字段: 标题="${content.title}", 类型="${content.type}", 评分=${content.rating}, 收藏=${content.is_favorite}, 标签=[${tags.map(t => t.name).join(',')}]`)
         
@@ -725,12 +735,13 @@ export class SyncService {
   async updateLocalContent(contentId, data) {
     await run(
       `UPDATE contents 
-       SET type = ?, title = ?, content = ?, source = ?, rating = ?, is_favorite = ?, updated_at = ?
+       SET type = ?, title = ?, content = ?, summary = ?, source = ?, rating = ?, is_favorite = ?, updated_at = ?
        WHERE id = ? AND user_id = ?`,
       [
         data.type,
         data.title,
         data.content,
+        data.summary || '',
         data.source,
         data.rating,
         data.is_favorite,

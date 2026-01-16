@@ -35,7 +35,7 @@ def find_listening_pids(port):
     system = platform.system()
     if system == "Windows":
         try:
-            output = subprocess.check_output(["netstat", "-ano"], text=True, errors="ignore")
+            output = subprocess.check_output(["netstat", "-ano"], universal_newlines=True, errors="ignore")
         except Exception as e:
             print(f"Warning: failed to check port {port}: {e}")
             return []
@@ -58,7 +58,7 @@ def find_listening_pids(port):
     try:
         output = subprocess.check_output(
             ["lsof", "-nP", f"-iTCP:{port}", "-sTCP:LISTEN", "-t"],
-            text=True,
+            universal_newlines=True,
             errors="ignore"
         )
         return sorted({int(line.strip()) for line in output.splitlines() if line.strip().isdigit()})
@@ -68,7 +68,7 @@ def find_listening_pids(port):
         return []
 
     try:
-        output = subprocess.check_output(["ss", "-ltnp"], text=True, errors="ignore")
+        output = subprocess.check_output(["ss", "-ltnp"], universal_newlines=True, errors="ignore")
     except Exception:
         return []
 
@@ -113,16 +113,27 @@ def free_ports(ports):
 def switch_node_version():
     """切换 Node.js 版本"""
     if os.path.exists(".nvmrc"):
+        target_version = "20.19.6"
+        try:
+            current_version = subprocess.check_output(["node", "-v"], universal_newlines=True).strip().lstrip('v')
+        except:
+            current_version = None
+
+        if current_version == target_version:
+            print(f"✓ Node 版本已是 {target_version}")
+            print()
+            return
+
         print("检测到 .nvmrc 文件...")
         if check_command("nvm"):
-            print("正在切换 Node 版本到 20.19.6...")
+            print(f"正在切换 Node 版本到 {target_version}...")
             try:
                 if platform.system() == "Windows":
                     # Windows 下 nvm 是批处理命令，需要特殊处理
-                    subprocess.run("nvm use 20.19.6", shell=True, check=False)
+                    subprocess.run(f"nvm use {target_version}", shell=True, check=False)
                 else:
                     # Unix 系统
-                    subprocess.run(["nvm", "use", "20.19.6"], check=False)
+                    subprocess.run(["nvm", "use", target_version], check=False)
                 print("✓ Node 版本切换完成")
                 time.sleep(1)
             except Exception as e:
@@ -210,7 +221,7 @@ def start_services():
             cwd=os.getcwd(),
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
-            text=True,
+            universal_newlines=True,
             bufsize=1,
             encoding='utf-8',
             errors='replace' # 防止编码错误
@@ -223,7 +234,7 @@ def start_services():
             cwd=os.getcwd(),
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
-            text=True,
+            universal_newlines=True,
             bufsize=1,
             encoding='utf-8',
             errors='replace'
