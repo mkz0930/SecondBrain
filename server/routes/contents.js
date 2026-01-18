@@ -204,7 +204,22 @@ router.post('/', async (req, res) => {
     let { type, title, content, url, source, rating, tags = [] } = req.body
 
     // Auto-Analyze logic
-    const hasUrl = url || (content && /(https?:\/\/[^\s]+)/.test(content));
+    let hasUrl = url || (content && /(https?:\/\/[^\s]+)/.test(content));
+    
+    // 如果传入的 url 为空，但内容里有 URL，则提取出来作为 url
+    if (!url && content) {
+        const urlMatch = content.match(/(https?:\/\/[^\s]+)/);
+        if (urlMatch) {
+            url = urlMatch[0];
+            hasUrl = true;
+        }
+    }
+
+    // source 字段逻辑：如果没传 source，但有 url，则默认 source = url
+    if (!source && url) {
+        source = url;
+    }
+
     const isTitleUnreasonable = !title || title.trim() === '' || 
                                 ['untitled', 'new note', 'no title', '未命名', '无标题'].includes(title.toLowerCase().trim()) || 
                                 title.length < 2;
@@ -215,7 +230,10 @@ router.post('/', async (req, res) => {
             const aiResult = await analyzeContent(content || '', url);
             if (aiResult) {
                 if (aiResult.title && aiResult.title !== '无标题') title = aiResult.title;
-                if (aiResult.url) url = aiResult.url;
+                // AI 分析返回的 url 也可以回填到 url/source
+                if (aiResult.url && !url) url = aiResult.url;
+                if (aiResult.url && !source) source = aiResult.url;
+                
                 if (!type || type === '其他') type = aiResult.type;
                 if (aiResult.summary) aiSummary = aiResult.summary;
             }
@@ -316,6 +334,12 @@ router.put('/:id', async (req, res) => {
     if (source !== undefined) {
       updates.push('source = ?')
       params.push(source)
+    } else if (url !== undefined && url !== null && url !== '') {
+      // 如果没有传 source，但传了 url，且 url 不为空，则自动将 source 设置为 url
+      // 仅当数据库中 source 为空时？或者总是？
+      // 为了保持一致性，如果 source 没传，就默认用 url。
+      updates.push('source = ?')
+      params.push(url)
     }
     if (rating !== undefined) {
       updates.push('rating = ?')
@@ -331,6 +355,7 @@ router.put('/:id', async (req, res) => {
         params
       )
     }
+
 
     if (tags !== undefined) {
       await run('DELETE FROM content_tags WHERE content_id = ?', [id])

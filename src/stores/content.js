@@ -18,7 +18,7 @@ export const useContentStore = defineStore('content', () => {
     tag: '',
     is_favorite: null,
     search: '',
-    sort: 'created_at',
+    sort: 'updated_at',
     order: 'desc'
   })
 
@@ -36,12 +36,12 @@ export const useContentStore = defineStore('content', () => {
       
       if (append) {
         // 去重合并，防止重复key
-        const newItems = response.data.data.filter(item => 
+        const newItems = (response.data.data || []).filter(item => 
           !contents.value.some(existing => existing.id === item.id)
         )
         contents.value = [...contents.value, ...newItems]
       } else {
-        contents.value = response.data.data
+        contents.value = response.data.data || []
       }
       
       pagination.value.total = response.data.total

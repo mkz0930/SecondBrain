@@ -99,7 +99,7 @@
                 v-model="newTagName" 
                 type="text" 
                 placeholder="标签名称"
-                @keyup.enter="createNewTag"
+                @keyup="handleNewTagKeyup"
               />
               <input 
                 v-model="newTagColor" 
@@ -236,6 +236,12 @@ async function createNewTag() {
     showNewTagInput.value = false
   } catch (err) {
     alert('创建标签失败：' + err.message)
+  }
+}
+
+function handleNewTagKeyup(e) {
+  if (e.key === 'Enter') {
+    createNewTag()
   }
 }
 

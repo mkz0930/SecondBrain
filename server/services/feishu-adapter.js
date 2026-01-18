@@ -153,6 +153,9 @@ export class FeishuAdapter {
     }
 
     this.logger.error(`[FeishuAdapter] Request failed after ${MAX_RETRY} retries:`, lastError.message)
+    if (lastError.response && lastError.response.data) {
+      this.logger.error('[FeishuAdapter] Error details:', JSON.stringify(lastError.response.data))
+    }
     throw lastError
   }
 
@@ -327,6 +330,35 @@ export class FeishuAdapter {
   }
 
   /**
+   * 辅助方法：在可用字段中查找最佳匹配
+   */
+  findBestMatchField(availableFieldNames, candidates) {
+    if (!availableFieldNames) return candidates[0] // 默认返回第一个候选
+    
+    // 1. 尝试精确匹配
+    for (const candidate of candidates) {
+      if (availableFieldNames.has(candidate)) {
+        return candidate
+      }
+    }
+
+    // 2. 尝试不区分大小写匹配
+    const lowerCaseMap = new Map()
+    for (const name of availableFieldNames) {
+      lowerCaseMap.set(name.toLowerCase(), name)
+    }
+    
+    for (const candidate of candidates) {
+      const lowerCandidate = candidate.toLowerCase()
+      if (lowerCaseMap.has(lowerCandidate)) {
+        return lowerCaseMap.get(lowerCandidate)
+      }
+    }
+    
+    return null
+  }
+
+  /**
    * 本地内容转换为飞书记录格式
    */
   convertToFeishuRecord(content, tags = [], availableFields = null) {
@@ -337,13 +369,30 @@ export class FeishuAdapter {
       'book': '书籍'
     }
 
-    const allFields = {
+    // 字段别名映射配置
+    const fieldMappings = {
+      '记录ID': ['记录ID', 'ID', 'RecordID'],
+      '标题': ['标题', 'Title', 'Name'],
+      '摘要': ['摘要', 'Summary', 'Abstract'],
+      '内容类型': ['内容类型', '分类', 'Type', 'Category'],
+      '内容正文': ['内容正文', '内容', '正文', 'Content', 'Body'],
+      '来源': ['来源', '链接', 'URL', 'Source', 'Link', 'url'],
+      '评分': ['评分', 'Rating', 'Score'],
+      '是否收藏': ['是否收藏', '收藏', 'IsFavorite', 'Favorite'],
+      '标签': ['标签', 'Tags', 'Keywords'],
+      '创建时间': ['创建时间', '日期', '创建日期', 'CreatedAt', 'Date', '时间'],
+      '更新时间': ['更新时间', '修改时间', 'UpdatedAt'],
+      '记录来源': ['记录来源', 'SourceType']
+    }
+
+    // 原始数据
+    const rawData = {
       '记录ID': content.id.toString(),
       '标题': content.title || '',
       '摘要': content.summary || '',
       '内容类型': typeMap[content.type] || content.type,
       '内容正文': content.content || '',
-      '来源': content.source || '',
+      '来源': content.source || null,
       '评分': content.rating || null,
       '是否收藏': Boolean(content.is_favorite),
       '标签': tags.map(tag => tag.name),
@@ -352,21 +401,40 @@ export class FeishuAdapter {
       '记录来源': '本地'
     }
 
-    // 如果提供了可用字段列表，只返回存在的字段
+    // 如果提供了可用字段列表，进行智能匹配并处理类型
     if (availableFields && Array.isArray(availableFields)) {
-      const filteredFields = {}
+      const availableFieldMap = new Map(availableFields.map(f => [f.field_name, f]))
       const availableFieldNames = new Set(availableFields.map(f => f.field_name))
-      
-      for (const [key, value] of Object.entries(allFields)) {
-        if (availableFieldNames.has(key)) {
-          filteredFields[key] = value
+      const finalFields = {}
+
+      for (const [key, candidates] of Object.entries(fieldMappings)) {
+        const matchedField = this.findBestMatchField(availableFieldNames, candidates)
+        if (matchedField) {
+          let value = rawData[key]
+          const fieldInfo = availableFieldMap.get(matchedField)
+
+          // 特殊类型处理
+          if (fieldInfo) {
+             // 15 is Hyperlink type
+             if (fieldInfo.type === 15 && value && typeof value === 'string') {
+                 value = { text: value, link: value }
+             }
+          }
+          
+          finalFields[matchedField] = value
         }
       }
-      return { fields: filteredFields }
+      return { fields: finalFields }
+    }
+
+    // 如果没有可用字段列表，使用默认字段名（第一个候选）
+    const defaultFields = {}
+    for (const [key, candidates] of Object.entries(fieldMappings)) {
+      defaultFields[candidates[0]] = rawData[key]
     }
 
     return {
-      fields: allFields
+      fields: defaultFields
     }
   }
 
@@ -375,11 +443,19 @@ export class FeishuAdapter {
    */
   convertFromFeishuRecord(record) {
     const fields = record.fields
-    // 调试日志：查看原始字段数据类型
-    // console.log('[FeishuAdapter] Raw fields:', JSON.stringify(fields, null, 2))
     
+    // 辅助方法：尝试获取字段值（支持多个别名）
+    const getFieldValue = (aliases) => {
+      for (const alias of aliases) {
+        if (fields[alias] !== undefined) {
+          return fields[alias]
+        }
+      }
+      return undefined
+    }
+
     // 获取分类/类型
-    const rawType = this.extractText(fields['内容类型'] || fields['分类'] || fields['Type'] || fields['Category'])
+    const rawType = this.extractText(getFieldValue(['内容类型', '分类', 'Type', 'Category']))
     
     const typeMap = {
       '随笔': 'note',
@@ -389,8 +465,8 @@ export class FeishuAdapter {
     }
 
     // 提取原始数据
-    let title = this.extractText(fields['标题'] || fields['Title'] || fields['Name'])
-    const content = this.extractText(fields['内容正文'] || fields['内容'] || fields['Content'] || fields['Body'])
+    let title = this.extractText(getFieldValue(['标题', 'Title', 'Name']))
+    const content = this.extractText(getFieldValue(['内容正文', '内容', '正文', 'Content', 'Body']))
     
     // 如果标题为空，且内容不为空，自动截取内容作为标题
     if (!title && content) {
@@ -400,17 +476,17 @@ export class FeishuAdapter {
     }
 
     return {
-      id: fields['记录ID'] ? parseInt(fields['记录ID'], 10) : null,
+      id: getFieldValue(['记录ID', 'ID']) ? parseInt(getFieldValue(['记录ID', 'ID']), 10) : null,
       title: title,
-      summary: this.extractText(fields['摘要'] || fields['Summary']),
+      summary: this.extractText(getFieldValue(['摘要', 'Summary'])),
       type: typeMap[rawType] || 'note',
       content: content,
-      source: this.extractText(fields['来源'] || fields['Source'] || fields['Url'] || fields['链接']),
-      rating: fields['评分'] || fields['Rating'] || null,
-      is_favorite: (fields['是否收藏'] || fields['Favorite'] || fields['IsFavorite']) ? 1 : 0,
-      tags: fields['标签'] || fields['Tags'] || [],
-      created_at: this.timestampToDate(fields['创建时间'] || fields['日期'] || fields['CreatedAt'] || fields['Date']),
-      updated_at: this.timestampToDate(fields['更新时间'] || fields['UpdatedAt']),
+      source: this.extractText(getFieldValue(['来源', '链接', 'URL', 'Source', 'Link'])),
+      rating: getFieldValue(['评分', 'Rating']),
+      is_favorite: (getFieldValue(['是否收藏', '收藏', 'Favorite', 'IsFavorite'])) ? 1 : 0,
+      tags: getFieldValue(['标签', 'Tags']) || [],
+      created_at: this.timestampToDate(getFieldValue(['创建时间', '日期', '创建日期', 'CreatedAt', 'Date'])),
+      updated_at: this.timestampToDate(getFieldValue(['更新时间', '修改时间', 'UpdatedAt'])),
       feishu_record_id: record.record_id
     }
   }

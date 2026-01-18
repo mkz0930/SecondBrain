@@ -43,6 +43,32 @@
       <div class="content-grid">
         <!-- 左侧信息栏 -->
         <aside class="info-panel">
+
+          <!-- 封面图 -->
+          <div class="info-card image-card" v-if="coverImage">
+            <img :src="coverImage" alt="Cover" class="cover-image" />
+          </div>
+
+          <!-- 详细信息 -->
+          <div class="info-card">
+            <div class="card-title">详细信息</div>
+            <div class="meta-list">
+              <div class="meta-item" v-if="manualRating > 0">
+                <span class="label">我的评分:</span>
+                <span class="value rating-stars">{{ '★'.repeat(manualRating) }}{{ '☆'.repeat(5 - manualRating) }}</span>
+              </div>
+              <div class="meta-item">
+                <span class="label">字数统计:</span>
+                <span class="value">{{ wordCount }} 字</span>
+              </div>
+              <div class="meta-item">
+                <span class="label">预计阅读:</span>
+                <span class="value">{{ readingTime }} 分钟</span>
+              </div>
+            </div>
+          </div>
+
+
           
           <!-- AI 摘要 -->
           <div class="info-card summary-card" v-if="content.summary">
@@ -67,9 +93,42 @@
           </div>
 
           <!-- 来源信息 -->
-          <div class="info-card" v-if="content.url || content.source">
+          <div class="info-card">
             <div class="card-title">来源信息</div>
-            <div class="source-list">
+            <div class="sidebar-source-list" v-if="content.url || content.source">
+              <div v-if="content.source" class="sidebar-source-item">
+                 <div class="source-label">来源:</div>
+                 <div class="source-value">{{ content.source }}</div>
+               </div>
+               <div v-if="content.url" class="sidebar-source-item">
+                 <div class="source-label">链接:</div>
+                 <a :href="content.url" target="_blank" class="sidebar-url-link">
+                   <span class="link-icon">🔗</span>
+                   <span class="link-text">{{ content.url }}</span>
+                 </a>
+               </div>
+            </div>
+            <div v-else class="empty-url-state">
+              暂无来源信息
+            </div>
+          </div>
+
+
+        </aside>
+
+        <!-- 右侧正文区域 -->
+        <main class="main-body-panel">
+          <!-- Markdown 渲染内容 -->
+          <div class="content-body" v-html="renderedContent"></div>
+
+          <div class="content-footer">
+            <span>最后更新：{{ formatDateTime(content.updated_at) }}</span>
+          </div>
+
+          <!-- 正文内容 (元数据) -->
+          <div class="detail-section">
+            <h3>来源信息</h3>
+            <div class="source-list" v-if="content.url || content.source">
               <div v-if="content.source" class="source-item">
                 <span class="label">来源:</span>
                 <span class="value">{{ content.source }}</span>
@@ -81,17 +140,28 @@
                 </a>
               </div>
             </div>
-          </div>
-        </aside>
-
-        <!-- 右侧正文区域 -->
-        <main class="main-body-panel">
-          <div class="content-body">
-            {{ content.content }}
+            <div v-else class="empty-state">
+              暂无来源信息
+            </div>
           </div>
 
-          <div class="content-footer">
-            <span>最后更新：{{ formatDateTime(content.updated_at) }}</span>
+          <!-- 附件列表 -->
+          <div class="detail-section">
+            <h3>附件 ({{ attachments.length }})</h3>
+            <div class="attachments-list" v-if="attachments.length > 0">
+              <div v-for="(item, index) in attachments" :key="index" class="attachment-item">
+                <a :href="item.url" target="_blank" class="attachment-link" :title="item.url">
+                  <span class="attachment-icon">{{ item.type === 'image' ? '🖼️' : '📎' }}</span>
+                  <span class="attachment-name">{{ item.name }}</span>
+                </a>
+                <div v-if="item.type === 'image'" class="attachment-preview-box">
+                  <img :src="item.url" loading="lazy" />
+                </div>
+              </div>
+            </div>
+            <div v-else class="empty-state">
+              暂无附件
+            </div>
           </div>
 
           <div class="annotations-section" v-if="content.annotations && content.annotations.length > 0">
@@ -116,6 +186,14 @@ import { ref, computed, onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useContentStore } from '../stores/content'
 import { formatDateTime, getContentTypeName } from '../utils/helpers'
+import MarkdownIt from 'markdown-it'
+
+const md = new MarkdownIt({
+  html: true,
+  linkify: true,
+  typographer: true,
+  breaks: true
+})
 
 const router = useRouter()
 const route = useRoute()
@@ -124,6 +202,99 @@ const contentStore = useContentStore()
 const content = computed(() => contentStore.currentContent)
 const loading = computed(() => contentStore.loading)
 const error = computed(() => contentStore.error)
+
+// Markdown 渲染内容
+const renderedContent = computed(() => {
+  if (!content.value || !content.value.content) return ''
+  return md.render(content.value.content)
+})
+
+const coverImage = computed(() => {
+  if (!content.value) return null
+  const text = content.value.content || ''
+  // Markdown image
+  const mdMatch = text.match(/!\[.*?\]\((.*?)\)/)
+  if (mdMatch) return mdMatch[1]
+  // HTML image
+  const htmlMatch = text.match(/<img.*?src=["'](.*?)["']/)
+  if (htmlMatch) return htmlMatch[1]
+  // URL is image
+  if (content.value.url && /\.(jpeg|jpg|gif|png|webp|bmp|svg)$/i.test(content.value.url)) {
+    return content.value.url
+  }
+  return null
+})
+
+const wordCount = computed(() => {
+  return (content.value?.content || '').length
+})
+
+const readingTime = computed(() => {
+  return Math.ceil(wordCount.value / 500) || 1
+})
+
+const manualRating = computed(() => content.value?.rating || 0)
+
+const attachments = computed(() => {
+  if (!content.value) return []
+  const text = content.value.content || ''
+  const items = []
+  const seenUrls = new Set()
+
+  const addItem = (type, name, url) => {
+    if (!url || seenUrls.has(url)) return
+    seenUrls.add(url)
+    items.push({ type, name, url })
+  }
+
+  // 1. Extract Markdown images
+  const mdImgRegex = /!\[(.*?)\]\((.*?)\)/g
+  let match
+  while ((match = mdImgRegex.exec(text)) !== null) {
+    addItem('image', match[1] || '图片', match[2])
+  }
+
+  // 2. Extract HTML images
+  const htmlImgRegex = /<img[^>]+src=["'](.*?)["'][^>]*>/g
+  while ((match = htmlImgRegex.exec(text)) !== null) {
+    const altMatch = match[0].match(/alt=["'](.*?)["']/)
+    const name = altMatch ? altMatch[1] : '图片'
+    addItem('image', name, match[1])
+  }
+
+  // 3. Extract potential file links
+  const mdLinkRegex = /(?<!!)\[(.*?)\]\((.*?)\)/g
+  while ((match = mdLinkRegex.exec(text)) !== null) {
+    const url = match[2]
+    // Only treat as attachment if it looks like a file
+    if (isAttachmentUrl(url)) {
+      addItem('file', match[1] || '文件', url)
+    }
+  }
+
+  // 4. Extract plain text URLs
+  const urlRegex = /(https?:\/\/[^\s<]+[^<.,:;"')\]\s])/g
+  while ((match = urlRegex.exec(text)) !== null) {
+    const url = match[1]
+    // Check if it's an image url
+    if (isImageUrl(url)) {
+      addItem('image', '图片', url)
+    } else if (isAttachmentUrl(url)) {
+      // It's a file link
+      addItem('file', '文件', url)
+    }
+  }
+
+  return items
+})
+
+function isImageUrl(url) {
+  return /\.(jpeg|jpg|gif|png|webp|bmp|svg)($|\?)/i.test(url)
+}
+
+function isAttachmentUrl(url) {
+  return /\.(pdf|doc|docx|xls|xlsx|ppt|pptx|zip|rar|7z|txt|csv|md|mp3|mp4|wav|avi|mov)($|\?)/i.test(url)
+}
 
 onMounted(async () => {
   const id = route.params.id
@@ -324,6 +495,34 @@ function getTypeName(type) {
   gap: 8px;
 }
 
+.sidebar-url-link {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+  color: var(--accent-primary);
+  text-decoration: none;
+  font-size: 13px;
+  line-height: 1.5;
+  word-break: break-all;
+  transition: opacity 0.2s;
+}
+
+.sidebar-url-link:hover {
+  opacity: 0.8;
+  text-decoration: underline;
+}
+
+.link-icon {
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.empty-url-state {
+  color: var(--text-tertiary);
+  font-size: 13px;
+  font-style: italic;
+}
+
 .tag {
   padding: 4px 12px;
   border-radius: var(--radius-full);
@@ -378,12 +577,119 @@ function getTypeName(type) {
   min-height: 400px;
 }
 
+/* Markdown Content Styles */
 .content-body {
   font-size: 17px;
   line-height: 1.8;
   color: var(--text-primary);
-  white-space: pre-wrap;
   word-wrap: break-word;
+}
+
+.content-body :deep(h1),
+.content-body :deep(h2),
+.content-body :deep(h3),
+.content-body :deep(h4),
+.content-body :deep(h5),
+.content-body :deep(h6) {
+  color: var(--text-primary);
+  margin-top: 1.5em;
+  margin-bottom: 0.8em;
+  line-height: 1.3;
+  font-weight: 600;
+}
+
+.content-body :deep(h1) { font-size: 1.8em; border-bottom: 1px solid var(--border-color); padding-bottom: 0.3em; }
+.content-body :deep(h2) { font-size: 1.5em; }
+.content-body :deep(h3) { font-size: 1.25em; }
+
+.content-body :deep(p) {
+  margin-bottom: 1.2em;
+}
+
+.content-body :deep(ul),
+.content-body :deep(ol) {
+  padding-left: 1.5em;
+  margin-bottom: 1.2em;
+}
+
+.content-body :deep(li) {
+  margin-bottom: 0.4em;
+}
+
+.content-body :deep(blockquote) {
+  border-left: 4px solid var(--accent-primary);
+  margin: 0 0 1.2em 0;
+  padding: 0.8em 1.2em;
+  background: rgba(59, 130, 246, 0.05);
+  color: var(--text-secondary);
+  border-radius: 0 var(--radius-md) var(--radius-md) 0;
+}
+
+.content-body :deep(code) {
+  background: rgba(255, 255, 255, 0.1);
+  padding: 0.2em 0.4em;
+  border-radius: 4px;
+  font-family: 'JetBrains Mono', 'Fira Code', monospace;
+  font-size: 0.9em;
+  color: var(--accent-secondary);
+}
+
+.content-body :deep(pre) {
+  background: #1e1e1e;
+  padding: 1.2em;
+  border-radius: 8px;
+  overflow-x: auto;
+  margin-bottom: 1.5em;
+  border: 1px solid var(--border-color);
+}
+
+.content-body :deep(pre code) {
+  background: none;
+  padding: 0;
+  color: #e4e7ed;
+  font-size: 0.9em;
+}
+
+.content-body :deep(img) {
+  max-width: 100%;
+  border-radius: 8px;
+  margin: 1.2em 0;
+  box-shadow: var(--shadow-sm);
+}
+
+.content-body :deep(a) {
+  color: var(--accent-primary);
+  text-decoration: none;
+  border-bottom: 1px dashed var(--accent-primary);
+}
+
+.content-body :deep(a:hover) {
+  border-bottom-style: solid;
+}
+
+.content-body :deep(hr) {
+  border: 0;
+  border-top: 1px solid var(--border-color);
+  margin: 2em 0;
+}
+
+.content-body :deep(table) {
+  width: 100%;
+  border-collapse: collapse;
+  margin-bottom: 1.5em;
+}
+
+.content-body :deep(th),
+.content-body :deep(td) {
+  border: 1px solid var(--border-color);
+  padding: 0.8em;
+  text-align: left;
+}
+
+.content-body :deep(th) {
+  background: rgba(255, 255, 255, 0.05);
+  font-weight: 600;
+  color: var(--text-secondary);
 }
 
 .content-footer {
@@ -393,6 +699,25 @@ function getTypeName(type) {
   color: var(--text-tertiary);
   font-size: 13px;
   text-align: right;
+}
+
+.detail-section {
+  margin-top: 40px;
+  padding-top: 30px;
+  border-top: 1px solid var(--border-color);
+}
+
+.detail-section h3 {
+  font-size: 18px;
+  color: var(--text-secondary);
+  margin-bottom: 20px;
+}
+
+.empty-state {
+  color: var(--text-tertiary);
+  font-size: 14px;
+  padding: 12px 0;
+  font-style: italic;
 }
 
 .annotations-section {
@@ -464,5 +789,124 @@ function getTypeName(type) {
   .header {
     padding: 16px 20px;
   }
+}
+
+.image-card {
+  padding: 0;
+  overflow: hidden;
+  border: none;
+}
+
+.cover-image {
+  width: 100%;
+  height: auto;
+  max-height: 300px;
+  display: block;
+  object-fit: cover;
+}
+
+.meta-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.meta-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 14px;
+}
+
+.meta-item .label {
+  color: var(--text-tertiary);
+}
+
+.meta-item .value {
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+
+.rating-stars {
+  color: var(--warning);
+  letter-spacing: 2px;
+}
+
+.attachments-list {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.attachment-item {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-bottom: 12px;
+  border-bottom: 1px dashed var(--border-color);
+}
+
+.attachment-item:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.attachment-link {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  text-decoration: none;
+  color: var(--text-secondary);
+  font-size: 14px;
+  transition: color 0.2s;
+}
+
+.attachment-link:hover {
+  color: var(--accent-primary);
+}
+
+.attachment-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.attachment-preview-box {
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  border: 1px solid var(--border-color);
+  background: var(--bg-body);
+}
+
+.attachment-preview-box img {
+  display: block;
+  width: 100%;
+  height: auto;
+  max-height: 150px;
+  object-fit: cover;
+}
+
+.sidebar-source-list {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.sidebar-source-item {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.source-label {
+  color: var(--text-tertiary);
+  font-size: 12px;
+}
+
+.source-value {
+  color: var(--text-secondary);
+  font-size: 13px;
+  word-break: break-all;
+  line-height: 1.5;
 }
 </style>

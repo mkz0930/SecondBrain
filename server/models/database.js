@@ -238,6 +238,17 @@ export async function initDatabase() {
             'CREATE UNIQUE INDEX IF NOT EXISTS idx_users_username ON users(username)'
           )
 
+          await runAsync(
+            database,
+            `CREATE TABLE IF NOT EXISTS daily_summaries (
+              id INTEGER PRIMARY KEY AUTOINCREMENT,
+              date TEXT NOT NULL UNIQUE,
+              summary TEXT NOT NULL,
+              created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+              updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+            )`
+          )
+
           // 飞书同步相关表
           await runAsync(
             database,

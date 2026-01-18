@@ -3,90 +3,123 @@
     <div class="header">
       <h1>外挂大脑</h1>
       <div class="header-actions">
-        <input 
-          v-model="searchKeyword" 
-          type="text" 
-          placeholder="搜索内容..." 
-          @keyup.enter="handleSearch"
-          class="search-input"
-        />
-        <div class="sync-status" v-if="isSyncing && syncStatus.message">
-          <span class="status-text">{{ syncStatus.message }}</span>
-          <div class="progress-bar" v-if="syncStatus.progress > 0">
-            <div class="progress-fill" :style="{ width: syncStatus.progress + '%' }"></div>
+          <input 
+            v-model="searchKeyword" 
+            type="text" 
+            placeholder="搜索内容..." 
+            @keyup="handleKeyup"
+            class="search-input"
+          />
+          
+          <!-- Sync Progress -->
+          <div class="sync-status-wrapper" v-if="isSyncing">
+            <div class="sync-info">
+              <span class="sync-text">{{ syncStatus.message }}</span>
+              <span class="sync-percent">{{ syncStatus.progress }}%</span>
+            </div>
+            <div class="progress-bar-sm">
+              <div class="progress-fill-sm" :style="{ width: syncStatus.progress + '%' }"></div>
+            </div>
           </div>
+
+          <!-- Sync Result Toast -->
+          <transition name="fade">
+            <div v-if="syncResult" class="sync-toast" :class="syncResult.type">
+              <span class="toast-icon">{{ syncResult.type === 'success' ? '✓' : '✕' }}</span>
+              {{ syncResult.message }}
+            </div>
+          </transition>
+
+          <button 
+            class="btn-secondary sync-btn" 
+            @click="handleSync" 
+            :disabled="isSyncing"
+            title="同步飞书数据">
+            <span v-if="isSyncing" class="spinner"></span>
+            {{ isSyncing ? '同步中...' : '同步飞书' }}
+          </button>
+          <button class="btn-primary" @click="goToNew">+ 新建内容</button>
+          <button class="btn-secondary" @click="handleLogout">登出</button>
         </div>
-        <button 
-          class="btn-secondary sync-btn" 
-          @click="handleSync" 
-          :disabled="isSyncing"
-          title="同步飞书数据">
-          {{ isSyncing ? '同步中...' : '同步飞书' }}
-        </button>
-        <button class="btn-primary" @click="goToNew">+ 新建内容</button>
-        <button class="btn-secondary" @click="handleLogout">登出</button>
-      </div>
     </div>
 
     <div class="main-content">
       <aside class="sidebar">
-        <div class="filter-section">
-          <h3>内容类型</h3>
-          <div class="filter-item" 
-               :class="{ active: filters.type === '' }" 
-               @click="filterByType('')">
-            全部
-          </div>
-          <div class="filter-item" 
-               :class="{ active: filters.type === 'note' }" 
-               @click="filterByType('note')">
-            随笔
-          </div>
-          <div class="filter-item" 
-               :class="{ active: filters.type === 'article' }" 
-               @click="filterByType('article')">
-            文章
-          </div>
-          <div class="filter-item" 
-               :class="{ active: filters.type === 'media' }" 
-               @click="filterByType('media')">
-            音视频
-          </div>
-          <div class="filter-item" 
-               :class="{ active: filters.type === 'book' }" 
-               @click="filterByType('book')">
-            书籍
-          </div>
-        </div>
+        <div class="sidebar-wrapper">
+          <div class="sidebar-col-left">
+            <div class="filter-card">
+              <h3>分类</h3>
+              <div class="filter-content">
+                <div class="filter-item" 
+                     :class="{ active: filters.type === '' }" 
+                     @click="filterByType('')">
+                  全部
+                </div>
+                <div class="filter-item" 
+                     :class="{ active: filters.type === 'note' }" 
+                     @click="filterByType('note')">
+                  随笔
+                </div>
+                <div class="filter-item" 
+                     :class="{ active: filters.type === 'article' }" 
+                     @click="filterByType('article')">
+                  文章
+                </div>
+                <div class="filter-item" 
+                     :class="{ active: filters.type === 'media' }" 
+                     @click="filterByType('media')">
+                  音视频
+                </div>
+                <div class="filter-item" 
+                     :class="{ active: filters.type === 'book' }" 
+                     @click="filterByType('book')">
+                  书籍
+                </div>
+              </div>
+            </div>
 
-        <div class="filter-section">
-          <h3>收藏</h3>
-          <div class="filter-item" 
-               :class="{ active: filters.is_favorite === null }" 
-               @click="filterByFavorite(null)">
-            全部
+            <div class="filter-card">
+              <h3>收藏</h3>
+              <div class="filter-content">
+                <div class="filter-item" 
+                     :class="{ active: filters.is_favorite === null }" 
+                     @click="filterByFavorite(null)">
+                  全部
+                </div>
+                <div class="filter-item" 
+                     :class="{ active: filters.is_favorite === true }" 
+                     @click="filterByFavorite(true)">
+                  已收藏
+                </div>
+              </div>
+            </div>
           </div>
-          <div class="filter-item" 
-               :class="{ active: filters.is_favorite === true }" 
-               @click="filterByFavorite(true)">
-            已收藏
-          </div>
-        </div>
 
-        <div class="filter-section" v-if="tagStore.tags.length > 0">
-          <h3>标签</h3>
-          <div class="filter-item" 
-               :class="{ active: filters.tag === '' }" 
-               @click="filterByTag('')">
-            全部
-          </div>
-          <div 
-            v-for="tag in tagStore.tags" 
-            :key="tag.id"
-            class="filter-item" 
-            :class="{ active: filters.tag === tag.name }" 
-            @click="filterByTag(tag.name)">
-            {{ tag.name }} ({{ tag.count }})
+          <div class="sidebar-col-right" v-if="tagStore.tags.length > 0">
+            <div class="filter-card h-full">
+              <h3>标签</h3>
+              <div class="filter-content tags-content">
+                <div class="filter-item tag-item" 
+                     :class="{ active: !filters.tag }" 
+                     @click="filterByTag('')">
+                  全部
+                </div>
+                <div 
+                  v-for="tag in displayedTags" 
+                  :key="tag.id"
+                  class="filter-item tag-item" 
+                  :class="{ active: filters.tag === tag.name }" 
+                  @click="filterByTag(tag.name)">
+                  {{ tag.name }} <span class="tag-count">{{ tag.count }}</span>
+                </div>
+              </div>
+
+              <div v-if="hasMoreTags" 
+                   class="filter-more-btn" 
+                   @click="showAllTags = !showAllTags">
+                {{ showAllTags ? '收起' : '更多标签...' }}
+              </div>
+            </div>
           </div>
         </div>
       </aside>
@@ -102,6 +135,13 @@
               <span class="timeline-count">{{ group.count }}条记录</span>
             </div>
             
+            <div v-if="dailySummaries[group.date]" class="daily-summary-banner">
+              <div class="summary-icon">📝</div>
+              <div class="summary-content">
+                <strong>今日总结：</strong>{{ dailySummaries[group.date] }}
+              </div>
+            </div>
+
             <div class="timeline-items">
               <div 
                 v-for="content in group.items" 
@@ -172,7 +212,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useContentStore } from '../stores/content'
 import { useTagStore } from '../stores/tag'
@@ -197,7 +237,77 @@ const syncStatus = ref({
   message: '',
   progress: 0
 })
-const filters = computed(() => contentStore.filters)
+const syncResult = ref(null) // { type: 'success' | 'error', message: string }
+let pollTimer = null
+
+const filters = computed(() => contentStore.filters || {})
+
+const dailySummaries = ref({})
+
+// Group contents by date
+const groupedContents = computed(() => {
+  if (!contents.value || !Array.isArray(contents.value)) {
+    return []
+  }
+  
+  const groups = {}
+  contents.value.forEach(content => {
+    if (!content || typeof content !== 'object') return
+    
+    const dateToUse = content.updated_at || content.created_at
+    const date = formatDate(dateToUse)
+    
+    if (!groups[date]) {
+      groups[date] = {
+        date,
+        displayDate: date,
+        count: 0,
+        items: []
+      }
+    }
+    
+    groups[date].items.push(content)
+    groups[date].count++
+  })
+  
+  return Object.values(groups).sort((a, b) => new Date(b.date) - new Date(a.date))
+})
+
+watch(groupedContents, (newGroups) => {
+  newGroups.forEach(group => {
+    fetchDailySummary(group.date)
+  })
+}, { immediate: true })
+
+async function fetchDailySummary(date) {
+  // If we already have it or tried to fetch it (null), skip
+  if (dailySummaries.value[date] !== undefined) return
+
+  try {
+    const res = await api.get(`/api/daily-summary/${date}`)
+    if (res.data && res.data.summary) {
+      dailySummaries.value[date] = res.data.summary
+    } else {
+       dailySummaries.value[date] = null // Mark as fetched but empty
+    }
+  } catch (e) {
+    console.error('Failed to fetch summary for', date, e)
+  }
+}
+
+const topTags = computed(() => {
+  // Assuming tags are already sorted by backend or we sort them here
+  // If backend doesn't sort by count, we should sort:
+  const sorted = [...tagStore.tags].sort((a, b) => (b.count || 0) - (a.count || 0))
+  return sorted.slice(0, 8)
+})
+
+const hasMoreTags = computed(() => tagStore.tags.length > 8)
+const showAllTags = ref(false)
+
+const displayedTags = computed(() => {
+  return showAllTags.value ? tagStore.tags : topTags.value
+})
 
 const totalPages = computed(() => {
   return Math.ceil(pagination.value.total / pagination.value.limit)
@@ -207,37 +317,20 @@ const hasMore = computed(() => {
   return pagination.value.page < totalPages.value
 })
 
-// Group contents by date
-const groupedContents = computed(() => {
-  const groups = {}
-  contents.value.forEach(content => {
-    const dateStr = formatDate(content.created_at)
-    if (!groups[dateStr]) {
-      const dateObj = new Date(content.created_at)
-      const displayDate = dateObj.toLocaleDateString('zh-CN', { 
-        year: 'numeric', 
-        month: 'long', 
-        day: 'numeric', 
-        weekday: 'long' 
-      })
-
-      groups[dateStr] = {
-        date: dateStr,
-        displayDate,
-        items: [],
-        count: 0
-      }
-    }
-    groups[dateStr].items.push(content)
-    groups[dateStr].count++
-  })
-  return Object.values(groups).sort((a, b) => b.date.localeCompare(a.date))
-})
-
 onMounted(() => {
   contentStore.fetchContents()
   tagStore.fetchTags()
 })
+
+onUnmounted(() => {
+  if (pollTimer) clearInterval(pollTimer)
+})
+
+function handleKeyup(e) {
+  if (e.key === 'Enter') {
+    handleSearch()
+  }
+}
 
 function handleSearch() {
   contentStore.updateFilters({ search: searchKeyword.value })
@@ -302,22 +395,75 @@ async function handleLogout() {
   }
 }
 
+async function pollSyncStatus() {
+  try {
+    const response = await api.get('/api/feishu/sync/status')
+    const status = response.data
+    
+    if (status) {
+      syncStatus.value = {
+        message: status.message || '正在同步...',
+        progress: status.progress || 0
+      }
+
+      if (status.status === 'finished') {
+        return 'finished'
+      } else if (status.status === 'failed') {
+        return 'failed'
+      }
+    }
+    return 'running'
+  } catch (error) {
+    console.error('Poll status error:', error)
+    return 'running'
+  }
+}
+
 async function handleSync() {
   if (isSyncing.value) return
   
   isSyncing.value = true
+  syncResult.value = null
+  syncStatus.value = { message: '准备开始同步...', progress: 0 }
+  
   try {
+    // 触发同步
     await api.post('/api/feishu/sync', { direction: 'both' })
-    await new Promise(resolve => setTimeout(resolve, 2000))
-    // 同步完成后刷新本地内容列表和标签
-    await contentStore.fetchContents()
-    await tagStore.fetchTags()
+    
+    // 开始轮询
+    pollTimer = setInterval(async () => {
+      const status = await pollSyncStatus()
+      
+      if (status === 'finished' || status === 'failed') {
+        clearInterval(pollTimer)
+        isSyncing.value = false
+        
+        if (status === 'finished') {
+          syncResult.value = { type: 'success', message: '同步成功！' }
+          // 刷新数据
+          await contentStore.fetchContents()
+          await tagStore.fetchTags()
+        } else {
+          syncResult.value = { type: 'error', message: syncStatus.value.message || '同步失败' }
+        }
+        
+        // 3秒后清除结果提示
+        setTimeout(() => {
+          syncResult.value = null
+        }, 3000)
+      }
+    }, 1000)
+    
   } catch (err) {
-    console.error('Sync failed:', err)
-    const errorMessage = err.response?.data?.error || err.response?.data?.message || err.message
-    alert('同步失败: ' + errorMessage)
-  } finally {
+    console.error('Sync trigger failed:', err)
+    clearInterval(pollTimer)
     isSyncing.value = false
+    const errorMessage = err.response?.data?.error || err.response?.data?.message || err.message
+    syncResult.value = { type: 'error', message: '启动同步失败: ' + errorMessage }
+    
+    setTimeout(() => {
+      syncResult.value = null
+    }, 3000)
   }
 }
 </script>
@@ -329,7 +475,6 @@ async function handleSync() {
               radial-gradient(circle at bottom right, #1e1b4b 0%, var(--bg-body) 40%);
   color: var(--text-primary);
   position: relative;
-  overflow-x: hidden;
 }
 
 /* Background Accents */
@@ -390,17 +535,106 @@ async function handleSync() {
 }
 
 .search-input {
-  width: 300px;
-  background: var(--bg-surface-hover);
-  border: 1px solid var(--border-color);
-  color: var(--text-primary);
-}
+    width: 300px;
+    background: var(--bg-surface-hover);
+    border: 1px solid var(--border-color);
+    color: var(--text-primary);
+  }
 
-.main-content {
+  /* Sync UI Components */
+  .sync-status-wrapper {
+    display: flex;
+    flex-direction: column;
+    width: 200px;
+    margin-right: 12px;
+  }
+
+  .sync-info {
+    display: flex;
+    justify-content: space-between;
+    font-size: 11px;
+    color: var(--text-secondary);
+    margin-bottom: 4px;
+  }
+
+  .sync-text {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 150px;
+  }
+
+  .progress-bar-sm {
+    height: 4px;
+    background: var(--bg-surface-hover);
+    border-radius: 2px;
+    overflow: hidden;
+  }
+
+  .progress-fill-sm {
+    height: 100%;
+    background: var(--accent-primary);
+    transition: width 0.3s ease;
+  }
+
+  .spinner {
+    display: inline-block;
+    width: 14px;
+    height: 14px;
+    border: 2px solid rgba(255, 255, 255, 0.3);
+    border-radius: 50%;
+    border-top-color: #fff;
+    animation: spin 1s ease-in-out infinite;
+    margin-right: 6px;
+  }
+
+  @keyframes spin {
+    to { transform: rotate(360deg); }
+  }
+
+  .sync-toast {
+    position: absolute;
+    top: 80px;
+    right: 40px;
+    padding: 12px 20px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 14px;
+    font-weight: 500;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+    z-index: 1000;
+    backdrop-filter: blur(8px);
+  }
+
+  .sync-toast.success {
+    background: rgba(16, 185, 129, 0.9);
+    color: white;
+  }
+
+  .sync-toast.error {
+    background: rgba(239, 68, 68, 0.9);
+    color: white;
+  }
+
+  .fade-enter-active,
+  .fade-leave-active {
+    transition: opacity 0.3s ease, transform 0.3s ease;
+  }
+
+  .fade-enter-from,
+  .fade-leave-to {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+
+  .main-content {
   display: grid;
-  grid-template-columns: 260px 1fr;
-  max-width: 1400px;
-  margin: 0 auto;
+  grid-template-columns: minmax(420px, 28%) 1fr;
+  width: 100%;
+  max-width: 100%;
+  margin: 0;
   padding: 30px 40px;
   gap: 30px;
   position: relative;
@@ -411,29 +645,75 @@ async function handleSync() {
   position: sticky;
   top: 100px;
   align-self: flex-start;
+  width: 100%;
+}
+
+.sidebar-wrapper {
+  background: rgba(30, 41, 59, 0.3);
+  padding: 20px;
+  border-radius: var(--radius-xl);
+  border: 1px solid var(--border-color);
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+  backdrop-filter: blur(8px);
+}
+
+.sidebar-col-left {
   display: flex;
   flex-direction: column;
   gap: 20px;
 }
 
-.filter-section {
+.sidebar-col-right {
+  display: flex;
+  flex-direction: column;
+}
+
+.h-full {
+  height: 100%;
+}
+
+.filter-card {
   background: var(--bg-surface);
   border-radius: var(--radius-lg);
   padding: 20px;
   border: 1px solid var(--border-color);
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+  transition: transform 0.2s, box-shadow 0.2s;
 }
 
-.filter-section h3 {
-  font-size: 12px;
+.filter-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+  border-color: var(--accent-primary);
+}
+
+.filter-card h3 {
+  font-size: 13px;
+  font-weight: 700;
   margin: 0 0 16px;
-  color: var(--text-tertiary);
+  color: var(--text-secondary);
   text-transform: uppercase;
   letter-spacing: 1px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.filter-content {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.tags-content {
+  flex-direction: row;
+  flex-wrap: wrap;
+  gap: 8px;
 }
 
 .filter-item {
-  padding: 8px 12px;
-  margin-bottom: 4px;
+  padding: 10px 14px;
   border-radius: var(--radius-md);
   cursor: pointer;
   color: var(--text-secondary);
@@ -441,17 +721,56 @@ async function handleSync() {
   font-size: 14px;
   display: flex;
   justify-content: space-between;
+  align-items: center;
 }
 
-.filter-item:hover {
+.filter-item:not(.tag-item):hover {
   background: var(--bg-surface-hover);
   color: var(--text-primary);
+  transform: translateX(4px);
 }
 
-.filter-item.active {
-  background: rgba(59, 130, 246, 0.15);
+.filter-item:not(.tag-item).active {
+  background: linear-gradient(90deg, rgba(59, 130, 246, 0.15), transparent);
   color: var(--accent-primary);
   font-weight: 600;
+  border-left: 3px solid var(--accent-primary);
+}
+
+/* Tag specific overrides */
+.tag-item {
+  background: var(--bg-surface-hover);
+  border: 1px solid transparent;
+  padding: 6px 12px;
+  font-size: 13px;
+  width: auto;
+  margin: 0;
+  border-radius: 20px;
+}
+
+.tag-item:hover {
+  border-color: var(--accent-primary);
+  color: var(--accent-primary);
+  background: rgba(59, 130, 246, 0.05);
+}
+
+.tag-item.active {
+  background: var(--accent-primary);
+  color: white;
+  border-color: var(--accent-primary);
+}
+
+.tag-item .tag-count {
+  font-size: 11px;
+  opacity: 0.7;
+  margin-left: 6px;
+}
+
+.tag-item.active .tag-count {
+  color: rgba(255,255,255,0.9);
+  background: rgba(255,255,255,0.2);
+  padding: 0 6px;
+  border-radius: 10px;
 }
 
 .content-area {
@@ -537,6 +856,30 @@ async function handleSync() {
 .timeline-count {
   font-size: 13px;
   color: var(--text-tertiary);
+}
+
+.daily-summary-banner {
+  margin: 0 0 24px 0;
+  background: rgba(16, 185, 129, 0.1);
+  border: 1px solid rgba(16, 185, 129, 0.2);
+  border-radius: var(--radius-lg);
+  padding: 16px 20px;
+  display: flex;
+  gap: 16px;
+  align-items: flex-start;
+  color: var(--text-secondary);
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.summary-icon {
+  font-size: 20px;
+  flex-shrink: 0;
+}
+
+.summary-content strong {
+  color: #10b981;
+  margin-right: 8px;
 }
 
 .timeline-items {
@@ -758,6 +1101,19 @@ async function handleSync() {
   margin: 0 12px;
 }
 
+@media (max-width: 1200px) {
+  .main-content {
+    grid-template-columns: 300px 1fr;
+    padding: 20px;
+    gap: 20px;
+  }
+  
+  .sidebar-wrapper {
+    display: flex;
+    flex-direction: column;
+  }
+}
+
 @media (max-width: 900px) {
   .main-content {
     grid-template-columns: 1fr;
@@ -765,8 +1121,33 @@ async function handleSync() {
   
   .sidebar {
     position: static;
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
   }
+
+  .sidebar-wrapper {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 16px;
+  }
+}
+
+.sidebar-divider {
+  height: 1px;
+  background: var(--border-color);
+  margin: 12px 0;
+  opacity: 0.5;
+}
+
+.filter-more-btn {
+  padding: 8px 12px;
+  font-size: 13px;
+  color: var(--text-tertiary);
+  cursor: pointer;
+  text-align: center;
+  transition: all 0.2s;
+  margin-top: 4px;
+}
+
+.filter-more-btn:hover {
+  color: var(--accent-primary);
 }
 </style>

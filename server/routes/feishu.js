@@ -4,6 +4,7 @@ import { requireUser } from '../middleware/auth.js'
 import { SyncService } from '../services/sync-service.js'
 import { FeishuAdapter, encryptSecret, decryptSecret } from '../services/feishu-adapter.js'
 import { syncState } from '../services/sync-state.js'
+import logger from '../utils/logger.js'
 
 const router = express.Router()
 router.use(requireUser)
@@ -68,12 +69,12 @@ router.post('/config', async (req, res) => {
     const adapter = new FeishuAdapter({
       app_id,
       app_secret,
-      logger: console
+      logger: logger
     })
 
     try {
       const tokenInfo = await adapter.refreshAccessToken()
-      console.log('[FeishuAPI] Connection test successful')
+      logger.info('[FeishuAPI] Connection test successful')
 
       // 检查是否已有配置
       const existing = await queryOne(
@@ -152,12 +153,12 @@ router.post('/config/test', async (req, res) => {
       return res.status(400).json({ error: 'app_id, app_secret and table_id are required' })
     }
 
-    console.log('[FeishuAPI] Testing connection...')
+    logger.info('[FeishuAPI] Testing connection...')
 
     const adapter = new FeishuAdapter({
       app_id,
       app_secret,
-      logger: console
+      logger: logger
     })
 
     await adapter.refreshAccessToken()
@@ -246,15 +247,15 @@ router.post('/sync', async (req, res) => {
       app_secret: appSecret,
       access_token: config.access_token,
       token_expires_at: config.token_expires_at
-    }, console)
+    }, logger)
 
     // 异步执行同步
     syncService.performSync('manual', direction)
       .then(result => {
-        console.log(`[FeishuAPI] Sync completed for user ${req.user.id}:`, result)
+        logger.info(`[FeishuAPI] Sync completed for user ${req.user.id}:`, result)
       })
       .catch(error => {
-        console.error(`[FeishuAPI] Sync failed for user ${req.user.id}:`, error)
+        logger.error(`[FeishuAPI] Sync failed for user ${req.user.id}:`, error)
       })
 
     // 立即返回响应
@@ -369,15 +370,15 @@ router.post('/import-all', async (req, res) => {
       app_secret: appSecret,
       access_token: config.access_token,
       token_expires_at: config.token_expires_at
-    }, console)
+    }, logger)
 
     // 异步执行
     syncService.performSync('manual', 'push')
       .then(result => {
-        console.log(`[FeishuAPI] Full import completed for user ${req.user.id}:`, result)
+        logger.info(`[FeishuAPI] Full import completed for user ${req.user.id}:`, result)
       })
       .catch(error => {
-        console.error(`[FeishuAPI] Full import failed for user ${req.user.id}:`, error)
+        logger.error(`[FeishuAPI] Full import failed for user ${req.user.id}:`, error)
       })
 
     res.json({
@@ -425,13 +426,13 @@ router.post('/reset-pull', async (req, res) => {
       app_secret: appSecret,
       access_token: config.access_token,
       token_expires_at: config.token_expires_at
-    }, console)
+    }, logger)
 
     // 清空本地数据
     try {
       await syncService.clearLocalData()
     } catch (e) {
-      console.error('[FeishuAPI] Clear local data failed:', e)
+      logger.error('[FeishuAPI] Clear local data failed:', e)
       return res.status(500).json({ error: 'Failed to clear local data: ' + e.message })
     }
 
@@ -439,10 +440,10 @@ router.post('/reset-pull', async (req, res) => {
     // 注意：performSync 是异步的，这里不等待它完成
     syncService.performSync('manual', 'pull', true)
       .then(result => {
-        console.log(`[FeishuAPI] Reset and Pull completed for user ${req.user.id}:`, result)
+        logger.info(`[FeishuAPI] Reset and Pull completed for user ${req.user.id}:`, result)
       })
       .catch(error => {
-        console.error(`[FeishuAPI] Reset and Pull failed for user ${req.user.id}:`, error)
+        logger.error(`[FeishuAPI] Reset and Pull failed for user ${req.user.id}:`, error)
       })
 
     res.json({

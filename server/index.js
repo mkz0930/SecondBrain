@@ -5,15 +5,25 @@ import tagsRouter from './routes/tags.js'
 import statsRouter from './routes/stats.js'
 import authRouter from './routes/auth.js'
 import feishuRouter from './routes/feishu.js'
+import dailySummaryRouter from './routes/daily-summary.js'
 import { initDatabase } from './models/database.js'
 import { ensureDefaultUser, backfillUserOwnership, ensureDefaultAdmin } from './models/users.js'
 import { startSyncScheduler } from './services/sync-scheduler.js'
+import { startDailyScheduler } from './services/daily-scheduler.js'
+import { dailySummaryService } from './services/daily-summary-service.js'
+import logger from './utils/logger.js'
 
 const app = express()
 const PORT = process.env.PORT || 3000
 
 app.use(cors())
 app.use(express.json())
+
+// Request logging middleware
+app.use((req, res, next) => {
+  logger.info(`${req.method} ${req.url}`)
+  next()
+})
 
 await initDatabase()
 
@@ -29,19 +39,29 @@ app.use('/api/contents', contentsRouter)
 app.use('/api/tags', tagsRouter)
 app.use('/api/stats', statsRouter)
 app.use('/api/feishu', feishuRouter)
+app.use('/api/daily-summary', dailySummaryRouter)
 
 app.get('/health', (req, res) => {
   res.json({ status: 'ok' })
 })
 
 app.listen(PORT, () => {
-  console.log(`Server is running on http://localhost:${PORT}`)
+  logger.info(`Server is running on http://localhost:${PORT}`)
   
   // 启动飞书同步定时任务
   if (process.env.FEISHU_SYNC_ENABLED !== 'false') {
-    console.log('[SyncScheduler] Starting Feishu sync scheduler...')
+    logger.info('[SyncScheduler] Starting Feishu sync scheduler...')
     startSyncScheduler()
   } else {
-    console.log('[SyncScheduler] Feishu sync scheduler is disabled')
+    logger.info('[SyncScheduler] Feishu sync scheduler is disabled')
   }
+
+  // 启动日报生成定时任务
+  startDailyScheduler();
+  
+  // 自动初始化所有历史日报 (后台运行)
+  logger.info('[DailySummary] Starting background initialization of past summaries...');
+  dailySummaryService.initializeAll().catch(err => {
+    logger.error('[DailySummary] Initialization failed:', err);
+  });
 })
