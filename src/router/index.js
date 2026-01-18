@@ -31,6 +31,30 @@ const routes = [
     name: 'ContentEdit',
     component: () => import('../views/ContentEditView.vue'),
     meta: { requiresAuth: true }
+  },
+  {
+    path: '/research',
+    name: 'ResearchList',
+    component: () => import('../views/ResearchListView.vue'),
+    meta: { requiresAuth: true }
+  },
+  {
+    path: '/research/:id',
+    name: 'ResearchDialogue',
+    component: () => import('../views/ResearchDialogueView.vue'),
+    meta: { requiresAuth: true }
+  },
+  {
+    path: '/graph',
+    name: 'KnowledgeGraph',
+    component: () => import('../views/KnowledgeGraphView.vue'),
+    meta: { requiresAuth: true }
+  },
+  {
+    path: '/database',
+    name: 'Database',
+    component: () => import('../views/DatabaseView.vue'),
+    meta: { requiresAuth: true }
   }
 ]
 

@@ -6,6 +6,9 @@ import statsRouter from './routes/stats.js'
 import authRouter from './routes/auth.js'
 import feishuRouter from './routes/feishu.js'
 import dailySummaryRouter from './routes/daily-summary.js'
+import researchRouter from './routes/research.js'
+import graphRouter from './routes/graph.js'
+import databaseRouter from './routes/database.js'
 import { initDatabase } from './models/database.js'
 import { ensureDefaultUser, backfillUserOwnership, ensureDefaultAdmin } from './models/users.js'
 import { startSyncScheduler } from './services/sync-scheduler.js'
@@ -40,6 +43,9 @@ app.use('/api/tags', tagsRouter)
 app.use('/api/stats', statsRouter)
 app.use('/api/feishu', feishuRouter)
 app.use('/api/daily-summary', dailySummaryRouter)
+app.use('/api/research', researchRouter)
+app.use('/api/graph', graphRouter)
+app.use('/api/database', databaseRouter)
 
 app.get('/health', (req, res) => {
   res.json({ status: 'ok' })

@@ -30,14 +30,17 @@
             </div>
           </transition>
 
-          <button 
-            class="btn-secondary sync-btn" 
-            @click="handleSync" 
+          <button
+            class="btn-secondary sync-btn"
+            @click="handleSync"
             :disabled="isSyncing"
             title="同步飞书数据">
             <span v-if="isSyncing" class="spinner"></span>
             {{ isSyncing ? '同步中...' : '同步飞书' }}
           </button>
+          <button class="btn-secondary" @click="goToResearch">🔬 研究助手</button>
+          <button class="btn-secondary" @click="goToGraph">🕸️ 知识图谱</button>
+          <button class="btn-secondary" @click="goToDatabase">📊 数据库</button>
           <button class="btn-primary" @click="goToNew">+ 新建内容</button>
           <button class="btn-secondary" @click="handleLogout">登出</button>
         </div>
@@ -253,9 +256,9 @@ const groupedContents = computed(() => {
   const groups = {}
   contents.value.forEach(content => {
     if (!content || typeof content !== 'object') return
-    
-    const dateToUse = content.updated_at || content.created_at
-    const date = formatDate(dateToUse)
+
+    // 使用创建时间进行分组，避免更新时间导致的历史内容混入今天
+    const date = formatDate(content.created_at)
     
     if (!groups[date]) {
       groups[date] = {
@@ -350,6 +353,18 @@ function filterByTag(tag) {
 
 function goToNew() {
   router.push('/content/new')
+}
+
+function goToResearch() {
+  router.push('/research')
+}
+
+function goToGraph() {
+  router.push('/graph')
+}
+
+function goToDatabase() {
+  router.push('/database')
 }
 
 function goToDetail(id) {
