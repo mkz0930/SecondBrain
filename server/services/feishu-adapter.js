@@ -382,7 +382,8 @@ export class FeishuAdapter {
       '标签': ['标签', 'Tags', 'Keywords'],
       '创建时间': ['创建时间', '日期', '创建日期', 'CreatedAt', 'Date', '时间'],
       '更新时间': ['更新时间', '修改时间', 'UpdatedAt'],
-      '记录来源': ['记录来源', 'SourceType']
+      '记录来源': ['记录来源', 'SourceType'],
+      '附件': ['附件', 'Attachments', 'Files']
     }
 
     // 原始数据
@@ -398,7 +399,8 @@ export class FeishuAdapter {
       '标签': tags.map(tag => tag.name),
       '创建时间': this.dateToTimestamp(content.created_at),
       '更新时间': this.dateToTimestamp(content.updated_at),
-      '记录来源': '本地'
+      '记录来源': '本地',
+      '附件': content.attachments ? JSON.parse(content.attachments) : []
     }
 
     // 如果提供了可用字段列表，进行智能匹配并处理类型
@@ -419,8 +421,19 @@ export class FeishuAdapter {
              if (fieldInfo.type === 15 && value && typeof value === 'string') {
                  value = { text: value, link: value }
              }
+             // 17 is Attachment type - convert array to Feishu attachment format
+             if (fieldInfo.type === 17 && Array.isArray(value)) {
+                 value = value.map(att => ({
+                   file_token: att.file_token || '',
+                   name: att.name || '',
+                   type: att.type || '',
+                   size: att.size || 0,
+                   url: att.url || '',
+                   tmp_url: att.tmp_url || ''
+                 }))
+             }
           }
-          
+
           finalFields[matchedField] = value
         }
       }
@@ -487,7 +500,8 @@ export class FeishuAdapter {
       tags: getFieldValue(['标签', 'Tags']) || [],
       created_at: this.timestampToDate(getFieldValue(['创建时间', '日期', '创建日期', 'CreatedAt', 'Date'])),
       updated_at: this.timestampToDate(getFieldValue(['更新时间', '修改时间', 'UpdatedAt'])),
-      feishu_record_id: record.record_id
+      feishu_record_id: record.record_id,
+      attachments: this.extractAttachments(getFieldValue(['附件', 'Attachments', 'Files']))
     }
   }
 
@@ -538,6 +552,28 @@ export class FeishuAdapter {
   timestampToDate(timestamp) {
     if (!timestamp) return null
     return new Date(timestamp).toISOString()
+  }
+
+  /**
+   * 提取附件信息
+   * 飞书附件字段是一个数组，包含文件信息
+   */
+  extractAttachments(fieldValue) {
+    if (!fieldValue) return []
+
+    // 如果已经是数组，直接处理
+    if (Array.isArray(fieldValue)) {
+      return fieldValue.map(att => ({
+        file_token: att.file_token || '',
+        name: att.name || att.file_name || '未命名文件',
+        type: att.type || att.mime_type || '',
+        size: att.size || 0,
+        url: att.url || '',
+        tmp_url: att.tmp_url || ''
+      }))
+    }
+
+    return []
   }
 }
 

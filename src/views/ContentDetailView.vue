@@ -2,9 +2,10 @@
   <div class="detail-view">
     <div class="header">
       <button class="btn-default back-btn" @click="goBack">
-        <span class="icon">←</span> 返回
+        <span class="icon">←</span> 返回首页
       </button>
       <div class="actions">
+        <button class="btn-default" @click="goBack">返回</button>
         <button class="btn-primary" @click="goToEdit">编辑</button>
         <button class="btn-danger" @click="handleDelete">删除</button>
       </div>
@@ -113,6 +114,21 @@
             </div>
           </div>
 
+          <!-- 附件列表 -->
+          <div class="info-card" v-if="feishuAttachments.length > 0">
+            <div class="card-title">附件 ({{ feishuAttachments.length }})</div>
+            <div class="sidebar-attachments-list">
+              <div v-for="(item, index) in feishuAttachments" :key="index" class="sidebar-attachment-item">
+                <a :href="item.url || item.tmp_url" target="_blank" class="sidebar-attachment-link" :title="item.name">
+                  <span class="attachment-icon">{{ getAttachmentIcon(item) }}</span>
+                  <span class="attachment-name">{{ item.name }}</span>
+                </a>
+                <div v-if="isImageAttachment(item)" class="sidebar-attachment-preview">
+                  <img :src="item.url || item.tmp_url" :alt="item.name" loading="lazy" />
+                </div>
+              </div>
+            </div>
+          </div>
 
         </aside>
 
@@ -122,6 +138,7 @@
           <div class="content-body" v-html="renderedContent"></div>
 
           <div class="content-footer">
+            <button class="btn-default back-to-home-btn" @click="goBack">← 返回首页</button>
             <span>最后更新：{{ formatDateTime(content.updated_at) }}</span>
           </div>
 
@@ -178,6 +195,12 @@
       </div>
 
     </div>
+
+    <!-- Floating back button at bottom right -->
+    <button class="floating-back-btn" @click="goBack" title="返回首页">
+      <span class="icon">←</span>
+      <span class="text">返回首页</span>
+    </button>
   </div>
 </template>
 
@@ -234,6 +257,19 @@ const readingTime = computed(() => {
 })
 
 const manualRating = computed(() => content.value?.rating || 0)
+
+// Feishu attachments from database
+const feishuAttachments = computed(() => {
+  if (!content.value || !content.value.attachments) return []
+  try {
+    const parsed = typeof content.value.attachments === 'string'
+      ? JSON.parse(content.value.attachments)
+      : content.value.attachments
+    return Array.isArray(parsed) ? parsed : []
+  } catch (e) {
+    return []
+  }
+})
 
 const attachments = computed(() => {
   if (!content.value) return []
@@ -294,6 +330,26 @@ function isImageUrl(url) {
 
 function isAttachmentUrl(url) {
   return /\.(pdf|doc|docx|xls|xlsx|ppt|pptx|zip|rar|7z|txt|csv|md|mp3|mp4|wav|avi|mov)($|\?)/i.test(url)
+}
+
+function isImageAttachment(attachment) {
+  if (!attachment) return false
+  const name = attachment.name || ''
+  const type = attachment.type || ''
+  return /\.(jpeg|jpg|gif|png|webp|bmp|svg)$/i.test(name) || type.startsWith('image/')
+}
+
+function getAttachmentIcon(attachment) {
+  if (isImageAttachment(attachment)) return '🖼️'
+  const name = attachment.name || ''
+  if (/\.(pdf)$/i.test(name)) return '📄'
+  if (/\.(doc|docx)$/i.test(name)) return '📝'
+  if (/\.(xls|xlsx)$/i.test(name)) return '📊'
+  if (/\.(ppt|pptx)$/i.test(name)) return '📽️'
+  if (/\.(zip|rar|7z)$/i.test(name)) return '📦'
+  if (/\.(mp3|wav)$/i.test(name)) return '🎵'
+  if (/\.(mp4|avi|mov)$/i.test(name)) return '🎬'
+  return '📎'
 }
 
 onMounted(async () => {
@@ -696,9 +752,55 @@ function getTypeName(type) {
   margin-top: 40px;
   padding-top: 20px;
   border-top: 1px solid var(--border-color);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
   color: var(--text-tertiary);
   font-size: 13px;
-  text-align: right;
+}
+
+.back-to-home-btn {
+  padding: 8px 16px;
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* Floating back button */
+.floating-back-btn {
+  position: fixed;
+  bottom: 40px;
+  right: 40px;
+  background: linear-gradient(135deg, #10b981, #059669);
+  color: white;
+  border: none;
+  border-radius: 50px;
+  padding: 12px 24px;
+  font-size: 15px;
+  font-weight: 500;
+  box-shadow: 0 4px 20px rgba(16, 185, 129, 0.4);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  transition: all 0.3s ease;
+  z-index: 98;
+}
+
+.floating-back-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 25px rgba(16, 185, 129, 0.5);
+}
+
+.floating-back-btn:active {
+  transform: translateY(0);
+}
+
+.floating-back-btn .icon {
+  font-size: 18px;
+  line-height: 1;
 }
 
 .detail-section {
@@ -771,11 +873,11 @@ function getTypeName(type) {
   .content-grid {
     grid-template-columns: 1fr;
   }
-  
+
   .info-panel {
     order: 2;
   }
-  
+
   .main-body-panel {
     order: 1;
     padding: 24px;
@@ -785,9 +887,35 @@ function getTypeName(type) {
     padding: 0 20px;
     margin: 20px auto;
   }
-  
+
   .header {
     padding: 16px 20px;
+  }
+
+  .content-footer {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+  }
+
+  .back-to-home-btn {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .floating-back-btn {
+    bottom: 20px;
+    right: 20px;
+    padding: 10px 20px;
+    font-size: 14px;
+  }
+
+  .floating-back-btn .text {
+    display: none;
+  }
+
+  .floating-back-btn .icon {
+    font-size: 20px;
   }
 }
 
@@ -909,4 +1037,63 @@ function getTypeName(type) {
   word-break: break-all;
   line-height: 1.5;
 }
+
+.sidebar-attachments-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.sidebar-attachment-item {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.sidebar-attachment-link {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  text-decoration: none;
+  color: var(--text-secondary);
+  font-size: 13px;
+  transition: color 0.2s;
+  word-break: break-word;
+}
+
+.sidebar-attachment-link:hover {
+  color: var(--accent-primary);
+}
+
+.sidebar-attachment-link .attachment-icon {
+  flex-shrink: 0;
+  font-size: 16px;
+}
+
+.sidebar-attachment-link .attachment-name {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  line-height: 1.4;
+}
+
+.sidebar-attachment-preview {
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  border: 1px solid var(--border-color);
+  background: var(--bg-body);
+  max-height: 200px;
+}
+
+.sidebar-attachment-preview img {
+  display: block;
+  width: 100%;
+  height: auto;
+  max-height: 200px;
+  object-fit: cover;
+}
+
 </style>

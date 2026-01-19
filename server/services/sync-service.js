@@ -782,8 +782,8 @@ export class SyncService {
         
         // 创建内容
         const result = await run(
-          `INSERT INTO contents (user_id, type, title, content, source, rating, is_favorite, created_at, updated_at)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          `INSERT INTO contents (user_id, type, title, content, source, rating, is_favorite, attachments, created_at, updated_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
           [
             this.userId,
             data.type,
@@ -792,6 +792,7 @@ export class SyncService {
             data.source,
             data.rating,
             data.is_favorite,
+            data.attachments ? JSON.stringify(data.attachments) : null,
             data.created_at || new Date().toISOString(),
             data.updated_at || new Date().toISOString()
           ]
@@ -932,8 +933,8 @@ export class SyncService {
    */
   async updateLocalContent(contentId, data, mappingUpdatedAt = null) {
     await run(
-      `UPDATE contents 
-       SET type = ?, title = ?, content = ?, summary = ?, source = ?, rating = ?, is_favorite = ?, updated_at = ?
+      `UPDATE contents
+       SET type = ?, title = ?, content = ?, summary = ?, source = ?, rating = ?, is_favorite = ?, attachments = ?, updated_at = ?
        WHERE id = ? AND user_id = ?`,
       [
         data.type,
@@ -943,6 +944,7 @@ export class SyncService {
         data.source,
         data.rating,
         data.is_favorite,
+        data.attachments ? JSON.stringify(data.attachments) : null,
         data.updated_at || new Date().toISOString(),
         contentId,
         this.userId

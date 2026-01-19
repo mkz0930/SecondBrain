@@ -1,7 +1,8 @@
 import express from 'express'
 import { query, queryOne, run } from '../models/database.js'
 import { requireUser } from '../middleware/auth.js'
-import { analyzeContent } from '../services/ai-service.js'
+import { analyzeContent, optimizeContentFormat } from '../services/ai-service.js'
+import logger from '../utils/logger.js'
 
 const router = express.Router()
 router.use(requireUser)
@@ -356,6 +357,27 @@ router.put('/:id', async (req, res) => {
       )
     }
 
+    // 格式优化：如果内容发生了变化，自动优化格式
+    let contentWasOptimized = false;
+    if (content !== undefined && content !== existing.content) {
+      try {
+        logger.info(`Starting format optimization for content ${id}`);
+        const optimizedContent = await optimizeContentFormat(content);
+
+        // 如果优化后的内容与原内容不同，更新数据库
+        if (optimizedContent && optimizedContent !== content) {
+          await run(
+            'UPDATE contents SET content = ? WHERE id = ? AND user_id = ?',
+            [optimizedContent, id, req.user.id]
+          );
+          logger.info(`Content ${id} format optimized successfully`);
+          contentWasOptimized = true;
+        }
+      } catch (optimizeError) {
+        // 优化失败不影响保存，只记录错误
+        logger.error(`Format optimization failed for content ${id}:`, optimizeError);
+      }
+    }
 
     if (tags !== undefined) {
       await run('DELETE FROM content_tags WHERE content_id = ?', [id])
@@ -375,7 +397,10 @@ router.put('/:id', async (req, res) => {
       }
     }
 
-    res.json({ message: 'Content updated successfully' })
+    res.json({
+      message: 'Content updated successfully',
+      optimized: contentWasOptimized
+    })
   } catch (error) {
     console.error('Update content error:', error)
     res.status(500).json({ error: error.message })

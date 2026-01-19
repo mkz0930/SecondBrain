@@ -1,352 +1,276 @@
-# 外挂大脑 - Second Brain
+# Second Brain - 外挂大脑
 
+> 一个用于积累和组织日常见闻、随笔、文章、音视频和书籍等多类型内容的个人知识管理工具。通过 AI 驱动的内容分析和飞书双向同步，帮助你构建属于自己的第二大脑。
 
+[![Node Version](https://img.shields.io/badge/node-%3E%3D20.x-brightgreen)](https://nodejs.org)
+[![License](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
 
-一个用于积累和组织日常见闻、随笔、文章、音视频和书籍等多类型内容的个人知识管理工具。
+## 核心理念
 
+> **"第二大脑"不是简单的笔记工具，而是你个人知识的延伸和增强。**
 
+- **积累为王** - 每天记录一点，长期积累形成知识资产
+- **AI 增强** - 自动分析、分类、摘要，降低整理成本
+- **多维连接** - 通过标签、时间、类型构建知识网络
+- **随时随地** - Web 端 + 飞书集成，多端无缝访问
 
-## ✨ 功能特性
+## 功能特性
 
+### 内容管理
+- **多类型支持** - 随笔、文章、音视频、书籍
+- **灵活标签** - 自定义标签 + 颜色区分
+- **评分系统** - 1-5 星评分，智能推荐
+- **收藏功能** - 快速标记重要内容
+- **全文搜索** - 标题 + 内容全文检索
 
+### AI 能力
+- **智能分析** - 自动提取标题、摘要、类型、标签
+- **内容优化** - AI 自动整理和格式化内容
+- **每日总结** - 基于当日内容生成智能日报
+- **研究助手** - 对话式研究工作流，AI 辅助深度研究
+- **多模型降级** - 自动切换最优 AI 模型
 
-- 📝 多类型内容管理（随笔、文章、音视频、书籍）
+### 飞书集成
+- **双向同步** - 本地与飞书表格实时同步
+- **增量更新** - 只同步变更，节省资源
+- **冲突解决** - 基于时间戳的智能合并
+- **加密存储** - 敏感信息 AES 加密
 
-- 🏷️ 灵活的标签系统
+### 用户体验
+- **时间轴视图** - 按日期分组展示内容
+- **响应式设计** - 适配桌面和移动设备
+- **Markdown 渲染** - 富文本内容展示
+- **访问统计** - 记录内容访问次数
+- **知识图谱** - 可视化展示知识关联
 
-- ⭐ 评分系统（1-5星）
+### 研究助手 🆕
+- **对话式交互** - AI 引导完成研究流程
+- **需求分析** - 自动生成研究问题
+- **资料收集** - 智能搜索本地内容库
+- **相关度评分** - AI 评估资料相关性
+- **知识图谱** - 可视化资料关联关系
+- **报告生成** - 自动生成结构化研究报告
 
-- ❤️ 收藏功能
+详见 [研究助手文档](docs/research-assistant.md)
 
-- 🔍 全文搜索
-
-- 📊 访问统计
-
-- 🎨 简洁直观的用户界面
-
-
-
-## 🚀 快速开始
-
-
+## 快速开始
 
 ### 环境要求
 
-- Node.js >= 20.x (推荐使用 20.19.6 LTS)
-- npm >= 10.x
-- 推荐使用 nvm 管理 Node.js 版本
+- **Node.js** >= 20.x (推荐使用 LTS 版本)
+- **npm** >= 10.x
+- 推荐使用 [nvm](https://github.com/nvm-sh/nvm) 管理 Node.js 版本
 
-### 安装步骤
-
-1. **安装依赖**
+### 安装
 
 ```bash
+# 克隆项目
+git clone https://github.com/yourusername/second-brain.git
+cd second-brain
+
+# 安装依赖
 npm install
 ```
 
-2. **启动服务**
+### 配置
 
-#### 方式一：使用启动脚本（推荐）
+创建 `.env` 文件（可选）：
 
-**Windows 系统：**
-```powershell
-# PowerShell 脚本（推荐）
-.\scripts\start.ps1
+```bash
+# Google AI API Key（必需，AI 功能）
+GOOGLE_API_KEY=your_api_key_here
 
-# 或使用批处理文件（已移除，请使用 PowerShell 脚本）
+# 后端端口（默认 3000）
+PORT=3000
+
+# 禁用匿名访问（可选）
+DISABLE_ANON=true
+
+# 启用飞书同步（可选）
+FEISHU_SYNC_ENABLED=true
+FEISHU_APP_ID=your_app_id
+FEISHU_APP_SECRET=your_app_secret
 ```
 
-**Linux/Mac 系统：**
+### 启动
+
+**推荐：使用启动脚本（自动启动前后端）**
+
 ```bash
+# Windows
+.\scripts\start.ps1
+
+# Linux/Mac
 chmod +x scripts/start.sh
 ./scripts/start.sh
 ```
 
-#### 方式二：Python 脚本
+**或使用 Python 脚本**
 
 ```bash
 python scripts/start.py
 ```
 
-#### 方式二：手动启动
-
-
-
-#### Windows 系统
-
-在命令行执行：
+**手动启动（需要两个终端）**
 
 ```bash
-
-.\scripts\start.ps1
-
-```
-
-
-
-#### Linux/Mac 系统
-
-```bash
-
-chmod +x scripts/start.sh
-
-./scripts/start.sh
-
-```
-
-
-
-#### 手动启动
-
-```bash
-
-# 终端1 - 启动后端服务
-
+# 终端 1 - 启动后端
 npm run server
 
-
-
-# 终端2 - 启动前端开发服务器
-
+# 终端 2 - 启动前端
 npm run dev
-
 ```
 
+### 访问
 
+- 前端地址：http://localhost:5173
+- 后端 API：http://localhost:3000
 
-3. **访问应用**
-
-
-
-浏览器访问 http://localhost:5173
-
-
-
-- 后端API服务：http://localhost:3000
-
-- 前端开发服务：http://localhost:5173
-
-
-
-## 📂 项目结构
-
-
+## 项目结构
 
 ```
-
 second-brain/
-
-├── data/              # 数据存储目录（SQLite数据库）
-
-├── server/            # 后端服务
-
-│   ├── index.js      # Express服务入口
-
-│   ├── routes/       # API路由
-
-│   └── models/       # 数据访问层
-
-├── src/               # 前端源码
-
-│   ├── views/        # 页面组件
-
-│   ├── stores/       # Pinia状态管理
-
-│   ├── router/       # Vue Router路由配置
-
-│   ├── utils/        # 工具函数
-
-│   └── assets/       # 静态资源
-
-├── index.html         # HTML入口
-
-├── package.json       # 项目配置
-
-├── vite.config.js     # Vite配置
-├── scripts/           # 启动脚本
-│   ├── start.ps1
-│   ├── start.sh
-│   └── start.py
-
+├── data/                   # 数据存储目录（SQLite 数据库）
+├── docs/                   # 项目文档
+│   ├── architecture.md     # 架构设计文档
+│   ├── api.md              # API 接口文档
+│   ├── database.md         # 数据库设计文档
+│   ├── development.md      # 开发指南
+│   ├── user-guide.md       # 用户使用指南
+│   ├── research-assistant.md  # 研究助手功能文档
+│   ├── research-api.md     # 研究助手 API 文档
+│   └── research-quickstart.md # 研究助手快速开始
+├── logs/                   # 日志文件目录
+├── scripts/                # 启动和工具脚本
+│   ├── start.ps1           # Windows 启动脚本
+│   ├── start.sh            # Linux/Mac 启动脚本
+│   └── start.py            # Python 启动脚本
+├── server/                 # 后端服务
+│   ├── index.js            # Express 服务入口
+│   ├── middleware/         # 中间件
+│   │   └── auth.js         # 认证中间件
+│   ├── models/             # 数据访问层
+│   │   ├── database.js     # 数据库操作
+│   │   └── users.js        # 用户模型
+│   ├── routes/             # API 路由
+│   │   ├── auth.js         # 认证路由
+│   │   ├── contents.js     # 内容路由
+│   │   ├── daily-summary.js # 每日总结路由
+│   │   ├── feishu.js       # 飞书同步路由
+│   │   ├── research.js     # 研究助手路由
+│   │   ├── stats.js        # 统计路由
+│   │   └── tags.js         # 标签路由
+│   ├── services/           # 业务逻辑层
+│   │   ├── ai-service.js   # AI 服务
+│   │   ├── daily-summary-service.js # 每日总结服务
+│   │   ├── feishu-adapter.js # 飞书 API 适配器
+│   │   ├── research-service.js  # 研究助手服务
+│   │   ├── sync-scheduler.js  # 同步调度器
+│   │   ├── sync-service.js    # 同步服务
+│   │   └── sync-state.js      # 同步状态管理
+│   └── utils/              # 后端工具
+│       └── logger.js       # 日志工具
+├── src/                    # 前端源码
+│   ├── router/             # Vue Router 配置
+│   │   └── index.js
+│   ├── stores/             # Pinia 状态管理
+│   │   ├── content.js      # 内容状态
+│   │   ├── research.js     # 研究助手状态
+│   │   ├── tag.js          # 标签状态
+│   │   └── user.js         # 用户状态
+│   ├── utils/              # 前端工具
+│   │   └── helpers.js
+│   ├── views/              # 页面组件
+│   │   ├── ContentDetailView.vue  # 内容详情
+│   │   ├── ContentEditView.vue    # 内容编辑
+│   │   ├── HomeView.vue           # 主页
+│   │   ├── LoginView.vue          # 登录页
+│   │   ├── ResearchListView.vue   # 研究项目列表
+│   │   └── ResearchDialogueView.vue # 研究对话界面
+│   ├── components/         # 公共组件
+│   │   ├── BackToTop.vue   # 返回顶部
+│   │   └── KnowledgeGraph.vue # 知识图谱
+│   ├── api.js              # HTTP 封装
+│   └── main.js             # 应用入口
+├── index.html              # HTML 入口
+├── package.json            # 项目配置
+├── vite.config.js          # Vite 配置
+└── CLAUDE.md               # Claude Code 开发指南
 ```
 
+## 技术栈
 
+| 层级 | 技术选型 |
+|------|----------|
+| 前端框架 | Vue 3 + Composition API |
+| 状态管理 | Pinia |
+| 路由 | Vue Router 4 |
+| 构建工具 | Vite |
+| 后端框架 | Express.js |
+| 数据库 | SQLite3 |
+| AI 服务 | Google Generative AI (Gemini) |
+| 日志 | Winston |
+| 定时任务 | node-cron |
 
-## 🛠️ 技术栈
+## 文档索引
 
+| 文档 | 描述 |
+|------|------|
+| [用户使用指南](docs/user-guide.md) | 功能使用说明 |
+| [研究助手快速开始](docs/research-quickstart.md) | 研究助手使用教程 |
+| [研究助手功能文档](docs/research-assistant.md) | 研究助手详细说明 |
+| [研究助手 API](docs/research-api.md) | 研究助手 API 接口 |
+| [架构设计文档](docs/architecture.md) | 系统架构和设计原理 |
+| [开发指南](docs/development.md) | 开发环境配置和规范 |
+| [API 文档](docs/api.md) | REST API 接口说明 |
+| [数据库设计文档](docs/database.md) | 数据库表结构和关系 |
 
+## 常见问题
 
-- **前端**: Vue 3 + Vite + Pinia + Vue Router
+<details>
+<summary>启动后无法访问？</summary>
 
-- **后端**: Node.js + Express
+确保已安装依赖（npm install），检查端口是否被占用。Windows 用户可能需要以管理员身份运行 PowerShell 脚本。
+</details>
 
-- **数据库**: SQLite3
+<details>
+<summary>AI 功能不可用？</summary>
 
-- **样式**: 原生CSS
+检查是否配置了 GOOGLE_API_KEY 环境变量。确保 API Key 有效且有足够配额。
+</details>
 
+<details>
+<summary>如何备份数据？</summary>
 
+定期备份 data/brain.db 文件。数据库文件不会被 git 追踪。
+</details>
 
-## 📖 使用说明
+<details>
+<summary>Node.js 版本过旧？</summary>
 
+本项目需要 Node.js >= 20.x。使用 nvm 安装最新 LTS 版本：nvm install 20
+</details>
 
+## 路线图
 
-### 创建内容
+- [x] 研究助手功能（对话式研究工作流）
+- [x] 知识图谱可视化
+- [ ] 支持更多 AI 模型（Claude、GPT）
+- [ ] 网络资源搜索（研究助手）
+- [ ] 导出功能（Markdown、PDF）
+- [ ] OCR 图片文字识别
+- [ ] 语音输入支持
+- [ ] 浏览器插件（快速收藏）
+- [ ] 移动端原生应用
 
+## 许可证
 
+[MIT License](LICENSE)
 
-1. 点击首页右上角的"+ 新建内容"按钮
+## 贡献
 
-2. 选择内容类型（随笔/文章/音视频/书籍）
+欢迎提交 Issue 和 Pull Request！
 
-3. 填写标题和内容
+---
 
-4. 可选：添加来源、评分、标签
-
-5. 点击"保存"按钮
-
-
-
-### 管理标签
-
-
-
-- 在编辑内容时，可以选择已有标签或创建新标签
-
-- 标签支持自定义颜色
-
-- 标签可在首页左侧筛选栏中使用
-
-
-
-### 搜索和筛选
-
-
-
-- 使用首页顶部搜索框进行全文搜索
-
-- 左侧筛选栏提供类型、收藏状态、标签筛选
-
-- 支持组合筛选
-
-
-
-### 收藏内容
-
-
-
-- 在内容卡片或详情页点击星标图标
-
-- 在筛选栏选择"已收藏"查看收藏的内容
-
-
-
-## 💾 数据备份
-
-
-
-数据库文件位于 `data/brain.db`，建议定期备份：
-
-
-
-```bash
-
-# 复制数据库文件到安全位置
-
-cp data/brain.db /path/to/backup/brain_backup_$(date +%Y%m%d).db
-
-```
-
-
-
-## 🔧 配置说明
-
-
-
-### 端口配置
-
-
-
-- **后端端口**: 在 `server/index.js` 中修改 `PORT` 变量（默认3000）
-
-- **前端端口**: 在 `vite.config.js` 中修改 `server.port`（默认5173）
-
-
-
-## 📝 API文档
-
-
-
-### 内容管理
-
-
-
-- `GET /api/contents` - 获取内容列表
-
-- `GET /api/contents/:id` - 获取内容详情
-
-- `POST /api/contents` - 创建内容
-
-- `PUT /api/contents/:id` - 更新内容
-
-- `DELETE /api/contents/:id` - 删除内容
-
-- `POST /api/contents/:id/favorite` - 切换收藏状态
-
-- `POST /api/contents/:id/access` - 记录访问日志
-
-
-
-### 标签管理
-
-
-
-- `GET /api/tags` - 获取标签列表
-
-- `POST /api/tags` - 创建标签
-
-
-
-### 统计信息
-
-
-
-- `GET /api/stats` - 获取统计数据
-
-
-
-## 🐛 常见问题
-
-
-
-### Q: 启动后无法访问？
-
-A: 确保已安装依赖（npm install），检查端口是否被占用。
-
-
-
-### Q: 数据丢失怎么办？
-
-A: 定期备份 `data/brain.db` 文件。数据库文件不会被git追踪。
-
-
-
-### Q: Node.js版本过旧？
-
-A: 本项目需要 Node.js >= 16.x，请升级到最新LTS版本。
-
-
-
-## 📄 许可证
-
-
-
-MIT License
-
-
-
-## 🤝 贡献
-
-
-
-欢迎提交Issue和Pull Request！
-
+**Made with ❤️ by knowledge enthusiasts**

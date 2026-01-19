@@ -1,24 +1,25 @@
 <template>
   <transition name="fade">
-    <button 
-      v-show="isVisible" 
-      class="back-to-top" 
+    <button
+      v-show="isVisible"
+      class="back-to-top"
       @click="scrollToTop"
       aria-label="返回顶部"
     >
-      <svg 
-        xmlns="http://www.w3.org/2000/svg" 
-        width="24" 
-        height="24" 
-        viewBox="0 0 24 24" 
-        fill="none" 
-        stroke="currentColor" 
-        stroke-width="3" 
-        stroke-linecap="round" 
+      <svg
+        xmlns="http://www.w3.org/2000/svg"
+        width="32"
+        height="32"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="3"
+        stroke-linecap="round"
         stroke-linejoin="round"
       >
         <path d="M18 15l-6-6-6 6"/>
       </svg>
+      <span class="text">顶部</span>
     </button>
   </transition>
 </template>
@@ -52,17 +53,19 @@ onUnmounted(() => {
 <style scoped>
 .back-to-top {
   position: fixed;
-  bottom: 40px;
+  bottom: 160px;
   right: 40px;
-  width: 56px;
-  height: 56px;
+  min-width: 64px;
+  height: 64px;
   border-radius: 50%;
   background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
   color: white;
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 4px 15px rgba(59, 130, 246, 0.4), 
+  gap: 2px;
+  box-shadow: 0 4px 15px rgba(59, 130, 246, 0.4),
               0 0 0 2px rgba(255, 255, 255, 0.1) inset;
   z-index: 999;
   cursor: pointer;
@@ -71,22 +74,28 @@ onUnmounted(() => {
   backdrop-filter: blur(4px);
 }
 
+.back-to-top svg {
+  transition: transform 0.3s ease;
+}
+
+.back-to-top .text {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+}
+
 .back-to-top:hover {
   transform: translateY(-5px) scale(1.05);
   box-shadow: 0 8px 25px rgba(59, 130, 246, 0.6),
               0 0 0 2px rgba(255, 255, 255, 0.2) inset;
 }
 
-.back-to-top:active {
-  transform: translateY(-2px) scale(0.95);
-}
-
-.back-to-top svg {
-  transition: transform 0.3s ease;
-}
-
 .back-to-top:hover svg {
   transform: translateY(-3px);
+}
+
+.back-to-top:active {
+  transform: translateY(-2px) scale(0.95);
 }
 
 /* Vue Transition Styles */
@@ -99,5 +108,23 @@ onUnmounted(() => {
 .fade-leave-to {
   opacity: 0;
   transform: translateY(20px);
+}
+
+@media (max-width: 768px) {
+  .back-to-top {
+    bottom: 120px;
+    right: 20px;
+    min-width: 56px;
+    height: 56px;
+  }
+
+  .back-to-top svg {
+    width: 28px;
+    height: 28px;
+  }
+
+  .back-to-top .text {
+    font-size: 10px;
+  }
 }
 </style>

@@ -17,14 +17,15 @@ export class DailySummaryService {
   async generateSummary(date) {
     console.log(`[DailySummary] Generating summary for ${date}...`);
     
-    // 1. Fetch contents for the date
+    // 1. Fetch contents for the date (created or updated on this date)
     // Use localtime to align with user's timezone (assuming server is configured or sqlite handles it)
-    // This ensures contents created on 'YYYY-MM-DD' in local time are selected.
+    // This ensures contents created or updated on 'YYYY-MM-DD' in local time are selected.
     const contents = await query(
-      `SELECT title, summary, content FROM contents 
-       WHERE date(created_at, 'localtime') = date(?) 
-       AND deleted_at IS NULL`, 
-      [date]
+      `SELECT DISTINCT title, summary, content FROM contents
+       WHERE (date(created_at, 'localtime') = date(?) OR date(updated_at, 'localtime') = date(?))
+       AND deleted_at IS NULL
+       AND (title IS NOT NULL AND title != '' OR content IS NOT NULL AND content != '')`,
+      [date, date]
     );
 
     if (contents.length === 0) {

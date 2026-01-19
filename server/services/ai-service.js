@@ -1,6 +1,7 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import axios from 'axios';
 import * as cheerio from 'cheerio';
+import logger from '../utils/logger.js';
 
 let genAI = null;
 
@@ -16,9 +17,20 @@ const MODELS = [
 async function generateWithRetry(genAI, prompt, retries = 3, modelIndex = 0) {
   const modelName = MODELS[modelIndex % MODELS.length];
   const model = genAI.getGenerativeModel({ model: modelName });
-  
+
+  // 记录输入
+  logger.info(`[AI调用] 模型: ${modelName}`);
+  logger.info(`[AI输入] ${prompt.substring(0, 500)}${prompt.length > 500 ? '...(已截断)' : ''}`);
+
   try {
-    return await model.generateContent(prompt);
+    const result = await model.generateContent(prompt);
+    const response = await result.response;
+    const outputText = response.text();
+
+    // 记录输出
+    logger.info(`[AI输出] ${outputText.substring(0, 500)}${outputText.length > 500 ? '...(已截断)' : ''}`);
+
+    return result;
   } catch (error) {
     // 检查是否为 429 错误 (Too Many Requests) 或 404/400 (模型不存在/不支持)
     // 404: Not Found (Model not found)
@@ -28,14 +40,14 @@ async function generateWithRetry(genAI, prompt, retries = 3, modelIndex = 0) {
 
     if (isRateLimit || isModelError) {
       if (isRateLimit) {
-         console.warn(`[AI] 配额超限 (${modelName})。`);
+         logger.warn(`[AI] 配额超限 (${modelName})。`);
       } else {
-         console.warn(`[AI] 模型不可用或不支持 (${modelName})，错误: ${error.status || error.message}`);
+         logger.warn(`[AI] 模型不可用或不支持 (${modelName})，错误: ${error.status || error.message}`);
       }
-      
+
       // 策略1：尝试切换模型
       if (modelIndex < MODELS.length - 1) {
-         console.warn(`[AI] 尝试切换到备用模型: ${MODELS[modelIndex + 1]}...`);
+         logger.warn(`[AI] 尝试切换到备用模型: ${MODELS[modelIndex + 1]}...`);
          return generateWithRetry(genAI, prompt, retries, modelIndex + 1);
       }
 
@@ -44,12 +56,13 @@ async function generateWithRetry(genAI, prompt, retries = 3, modelIndex = 0) {
       // 也许其他模型能用。
       if (retries > 0) {
         const waitTime = 20000; // 20秒
-        console.warn(`[AI] 所有模型均忙或不可用，将在 ${waitTime/1000} 秒后重试... (剩余尝试次数: ${retries})`);
+        logger.warn(`[AI] 所有模型均忙或不可用，将在 ${waitTime/1000} 秒后重试... (剩余尝试次数: ${retries})`);
         await sleep(waitTime);
         // 递归重试，重置模型索引，从头开始试
         return generateWithRetry(genAI, prompt, retries - 1, 0);
       }
     }
+    logger.error(`[AI错误] ${error.message}`);
     throw error;
   }
 }
@@ -170,13 +183,13 @@ export async function generateDailySummary(contents) {
 
   const prompt = `
   请根据以下今天的笔记内容，生成一个精炼的日报总结。
-  
+
   要求：
   1. 总结今天关注的核心主题和关键信息。
   2. 语言简练，条理清晰。
   3. 字数控制在100-300字之间。
   4. 不要使用Markdown格式，直接输出纯文本。
-  
+
   今日笔记列表：
   ${contentText}
   `;
@@ -188,5 +201,65 @@ export async function generateDailySummary(contents) {
   } catch (error) {
     console.error('Daily summary generation failed:', error);
     return null;
+  }
+}
+
+/**
+ * 优化内容格式和组织结构
+ * @param {string} content - 需要优化的内容
+ * @returns {Promise<string>} - 优化后的内容
+ */
+export async function optimizeContentFormat(content) {
+  logger.info(`[格式优化] 开始优化内容，原始长度: ${content?.length || 0} 字符`);
+
+  if (!genAI) {
+    const API_KEY = process.env.GOOGLE_API_KEY || process.env.GEMINI_API_KEY;
+    if (API_KEY) {
+      genAI = new GoogleGenerativeAI(API_KEY);
+    } else {
+      logger.warn('[格式优化] Google API Key not found. Skipping content format optimization.');
+      return content;
+    }
+  }
+
+  if (!content || content.trim().length === 0) {
+    logger.info('[格式优化] 内容为空，跳过优化');
+    return content;
+  }
+
+  const prompt = `
+请优化以下内容的格式和组织结构，保持所有信息完整：
+
+要求：
+1. 改善段落结构和可读性
+2. 添加适当的标题（使用 ## 格式）组织内容
+3. 使用项目符号（-）或编号列表来组织要点
+4. 移除重复内容和无意义的填充文字
+5. 提升内容的逻辑性和清晰度
+6. 保持原有的语气和风格
+7. 保留所有URL和重要信息
+8. 使用Markdown格式输出
+
+内容：
+${content}
+
+请只返回优化后的内容，不要添加任何解释或额外文字。
+`;
+
+  try {
+    const result = await generateWithRetry(genAI, prompt);
+    const response = await result.response;
+    let optimizedContent = response.text().trim();
+
+    // 移除可能的 markdown 代码块标记
+    optimizedContent = optimizedContent.replace(/^```markdown\n/, '').replace(/^```\n/, '').replace(/\n```$/, '').trim();
+
+    logger.info(`[格式优化] 优化完成，优化后长度: ${optimizedContent.length} 字符，变化: ${optimizedContent.length - content.length} 字符`);
+
+    return optimizedContent;
+  } catch (error) {
+    logger.error(`[格式优化] Content format optimization failed: ${error.message}`);
+    // 如果优化失败，返回原始内容
+    return content;
   }
 }

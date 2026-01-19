@@ -2,6 +2,7 @@ import sqlite3 from 'sqlite3'
 import { fileURLToPath } from 'url'
 import { dirname, join } from 'path'
 import { mkdir } from 'fs/promises'
+import logger from '../utils/logger.js'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = dirname(__filename)
@@ -204,6 +205,12 @@ export async function initDatabase() {
           )
           await ensureColumn(
             database,
+            'contents',
+            'attachments',
+            'ALTER TABLE contents ADD COLUMN attachments TEXT'
+          )
+          await ensureColumn(
+            database,
             'tags',
             'user_id',
             'ALTER TABLE tags ADD COLUMN user_id INTEGER'
@@ -322,10 +329,90 @@ export async function initDatabase() {
             'CREATE INDEX IF NOT EXISTS idx_feishu_config_user ON feishu_sync_config(user_id)'
           )
 
-          console.log('Database initialized successfully (including Feishu sync tables)')
+          // 研究助手相关表
+          await runAsync(
+            database,
+            `CREATE TABLE IF NOT EXISTS research_projects (
+              id INTEGER PRIMARY KEY AUTOINCREMENT,
+              user_id INTEGER NOT NULL,
+              title TEXT NOT NULL,
+              description TEXT,
+              status TEXT DEFAULT 'draft',
+              created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+              updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+              FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+            )`
+          )
+
+          await runAsync(
+            database,
+            `CREATE TABLE IF NOT EXISTS research_questions (
+              id INTEGER PRIMARY KEY AUTOINCREMENT,
+              project_id INTEGER NOT NULL,
+              question TEXT NOT NULL,
+              answer TEXT,
+              status TEXT DEFAULT 'pending',
+              order_index INTEGER,
+              created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+              FOREIGN KEY (project_id) REFERENCES research_projects(id) ON DELETE CASCADE
+            )`
+          )
+
+          await runAsync(
+            database,
+            `CREATE TABLE IF NOT EXISTS research_materials (
+              id INTEGER PRIMARY KEY AUTOINCREMENT,
+              project_id INTEGER NOT NULL,
+              question_id INTEGER,
+              type TEXT NOT NULL,
+              source TEXT NOT NULL,
+              title TEXT,
+              content TEXT,
+              relevance_score REAL,
+              created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+              FOREIGN KEY (project_id) REFERENCES research_projects(id) ON DELETE CASCADE,
+              FOREIGN KEY (question_id) REFERENCES research_questions(id) ON DELETE SET NULL
+            )`
+          )
+
+          await runAsync(
+            database,
+            `CREATE TABLE IF NOT EXISTS research_connections (
+              id INTEGER PRIMARY KEY AUTOINCREMENT,
+              project_id INTEGER NOT NULL,
+              material_id INTEGER NOT NULL,
+              connected_material_id INTEGER,
+              connection_type TEXT,
+              strength REAL,
+              created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+              FOREIGN KEY (project_id) REFERENCES research_projects(id) ON DELETE CASCADE,
+              FOREIGN KEY (material_id) REFERENCES research_materials(id) ON DELETE CASCADE,
+              FOREIGN KEY (connected_material_id) REFERENCES research_materials(id) ON DELETE CASCADE
+            )`
+          )
+
+          // 创建研究助手相关索引
+          await runAsync(
+            database,
+            'CREATE INDEX IF NOT EXISTS idx_research_projects_user ON research_projects(user_id)'
+          )
+          await runAsync(
+            database,
+            'CREATE INDEX IF NOT EXISTS idx_research_questions_project ON research_questions(project_id)'
+          )
+          await runAsync(
+            database,
+            'CREATE INDEX IF NOT EXISTS idx_research_materials_project ON research_materials(project_id)'
+          )
+          await runAsync(
+            database,
+            'CREATE INDEX IF NOT EXISTS idx_research_connections_project ON research_connections(project_id)'
+          )
+
+          logger.info('Database initialized successfully (including Feishu sync tables and Research tables)')
           resolve()
         } catch (err) {
-          console.error('Database initialization error:', err)
+          logger.error('Database initialization error:', err)
           reject(err)
         }
       })()

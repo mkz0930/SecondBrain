@@ -1,10 +1,13 @@
 <template>
   <div class="edit-view">
     <div class="header">
-      <button class="btn-default" @click="goBack">← 返回</button>
-      <button class="btn-primary" @click="handleSave" :disabled="saving">
-        {{ saving ? '保存中...' : '保存' }}
-      </button>
+      <button class="btn-default" @click="goBack">← 返回首页</button>
+      <div class="actions">
+        <button class="btn-default" @click="goBack">取消</button>
+        <button class="btn-primary" @click="handleSave" :disabled="saving">
+          {{ saving ? '保存中...' : '保存' }}
+        </button>
+      </div>
     </div>
 
     <div class="form-container">
@@ -185,7 +188,13 @@ async function handleSave() {
 
   try {
     if (isEditMode.value) {
-      await contentStore.updateContent(route.params.id, formData.value)
+      const result = await contentStore.updateContent(route.params.id, formData.value)
+
+      // 如果内容被优化了，重新获取数据以显示优化后的内容
+      if (result.optimized) {
+        await contentStore.fetchContent(route.params.id)
+      }
+
       router.push(`/content/${route.params.id}`)
     } else {
       const result = await contentStore.createContent(formData.value)
@@ -270,6 +279,11 @@ function cancelNewTag() {
   position: sticky;
   top: 0;
   z-index: 10;
+}
+
+.header .actions {
+  display: flex;
+  gap: 12px;
 }
 
 .form-container {

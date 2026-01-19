@@ -10,16 +10,25 @@
     <template v-else>
       <router-view />
       <BackToTop />
+      <ThemeSwitcher />
     </template>
   </div>
 </template>
 
 <script setup>
-import { ref, onErrorCaptured } from 'vue'
+import { ref, onErrorCaptured, onMounted } from 'vue'
 import BackToTop from './components/BackToTop.vue'
+import ThemeSwitcher from './components/ThemeSwitcher.vue'
+import { useThemeStore } from './stores/theme'
 
+const themeStore = useThemeStore()
 const hasError = ref(false)
 const errorMessage = ref('')
+
+// 初始化主题
+onMounted(() => {
+  themeStore.initTheme()
+})
 
 onErrorCaptured((err) => {
   console.error('App Error Captured:', err)

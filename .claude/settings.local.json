@@ -1,0 +1,32 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(dir:*)",
+      "Bash(npm run server:*)",
+      "Bash(npm run dev)",
+      "Bash(timeout:*)",
+      "Bash(findstr:*)",
+      "Bash(ls:*)",
+      "Bash(if not exist \"D:\\\\code\\\\SecondBrain\\\\docs\" mkdir \"D:\\\\code\\\\SecondBrain\\\\docs\")",
+      "Bash(curl:*)",
+      "Bash(start /B cmd /c \"npm run server > logs\\\\server-start.log 2>&1\")",
+      "Bash(ping:*)",
+      "Bash(node:*)",
+      "Skill(superpowers:brainstorming)",
+      "Bash(find:*)",
+      "Bash(sqlite3:*)",
+      "Skill(superpowers:writing-plans)",
+      "Bash(taskkill:*)",
+      "Bash(npm install:*)",
+      "Bash(date:*)",
+      "Bash(time:*)",
+      "Bash(powershell -Command:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(tail:*)",
+      "Bash(test:*)",
+      "Bash(zcat:*)",
+      "Bash(wc:*)"
+    ]
+  }
+}
