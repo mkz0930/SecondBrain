@@ -116,11 +116,13 @@ export class FeishuAdapter {
         })
 
         const duration = Date.now() - startTime
-        this.logger.info(`[FeishuAdapter] API response: status ${response.status}, duration ${duration}ms`)
+        this.logger.info(`[FeishuAdapter] API response: status ${response.status}, duration ${duration}ms, code ${response.data.code}`)
 
         // 检查飞书API响应码
         if (response.data.code !== 0) {
-          throw new Error(`Feishu API error: ${response.data.msg} (code: ${response.data.code})`)
+          const errorMsg = `Feishu API error: ${response.data.msg} (code: ${response.data.code})`
+          this.logger.error(`[FeishuAdapter] ${errorMsg}`)
+          throw new Error(errorMsg)
         }
 
         return response.data
@@ -131,7 +133,7 @@ export class FeishuAdapter {
         if (error.response && error.response.status === 429) {
           const retryAfter = parseInt(error.response.headers['retry-after'] || '5', 10)
           this.logger.warn(`[FeishuAdapter] Rate limited, retry after ${retryAfter}s`)
-          
+
           if (retryCount < MAX_RETRY) {
             await this.sleep(retryAfter * 1000)
             retryCount++
@@ -139,10 +141,16 @@ export class FeishuAdapter {
           }
         }
 
+        // 如果是飞书API错误（非网络错误），不要重试
+        if (error.message && error.message.includes('Feishu API error')) {
+          this.logger.error(`[FeishuAdapter] Feishu API error, not retrying: ${error.message}`)
+          break
+        }
+
         // 其他错误，使用指数退避重试
         if (retryCount < MAX_RETRY) {
           const delay = RETRY_DELAY * Math.pow(2, retryCount)
-          this.logger.warn(`[FeishuAdapter] Request failed, retrying in ${delay}ms (attempt ${retryCount + 1}/${MAX_RETRY})`)
+          this.logger.warn(`[FeishuAdapter] Request failed, retrying in ${delay}ms (attempt ${retryCount + 1}/${MAX_RETRY}): ${error.message}`)
           await this.sleep(delay)
           retryCount++
           continue

@@ -12,6 +12,12 @@ import time
 import platform
 import signal
 
+# 设置 Windows 控制台 UTF-8 编码
+if platform.system() == "Windows":
+    import io
+    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='replace')
+    sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8', errors='replace')
+
 def print_header():
     """打印启动标题"""
     print("=" * 50)

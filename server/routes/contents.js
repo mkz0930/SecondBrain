@@ -3,6 +3,9 @@ import { query, queryOne, run } from '../models/database.js'
 import { requireUser } from '../middleware/auth.js'
 import { analyzeContent, optimizeContentFormat } from '../services/ai-service.js'
 import logger from '../utils/logger.js'
+import axios from 'axios'
+import { JSDOM } from 'jsdom'
+import { Readability } from '@mozilla/readability'
 
 const router = express.Router()
 router.use(requireUser)
@@ -200,9 +203,321 @@ router.post('/analyze', async (req, res) => {
   }
 })
 
+// 新端点：获取并解析 URL 内容
+router.post('/fetch-url', async (req, res) => {
+  try {
+    const { url } = req.body
+
+    if (!url) {
+      return res.status(400).json({ error: 'URL is required' })
+    }
+
+    // 验证 URL 格式
+    try {
+      new URL(url)
+    } catch (e) {
+      return res.status(400).json({ error: 'Invalid URL format' })
+    }
+
+    logger.info(`Fetching URL: ${url}`)
+
+    // 获取网页内容
+    const response = await axios.get(url, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+      },
+      timeout: 15000,
+      maxRedirects: 5
+    })
+
+    // 使用 Readability 提取主要内容
+    const dom = new JSDOM(response.data, { url })
+    const reader = new Readability(dom.window.document)
+    const article = reader.parse()
+
+    if (!article) {
+      logger.warn(`Failed to parse article from URL: ${url}`)
+      return res.status(400).json({ error: '无法解析文章内容，可能不是有效的文章页面' })
+    }
+
+    logger.info(`Successfully fetched and parsed URL: ${url}`)
+
+    res.json({
+      title: article.title || '',
+      content: article.textContent || '',
+      excerpt: article.excerpt || '',
+      html: article.content || '',
+      author: article.byline || '',
+      siteName: article.siteName || ''
+    })
+  } catch (error) {
+    logger.error('Fetch URL error:', error)
+
+    if (error.code === 'ENOTFOUND' || error.code === 'ECONNREFUSED') {
+      return res.status(400).json({ error: '无法访问该 URL，请检查网络连接或 URL 是否正确' })
+    }
+    if (error.code === 'ETIMEDOUT') {
+      return res.status(408).json({ error: '请求超时，请稍后重试' })
+    }
+
+    res.status(500).json({ error: error.message || '获取内容失败' })
+  }
+})
+
+// 新端点：快速保存（获取 + 分析 + 保存）
+router.post('/quick-save', async (req, res) => {
+  try {
+    const { url } = req.body
+
+    if (!url) {
+      return res.status(400).json({ error: 'URL is required' })
+    }
+
+    logger.info(`Quick save URL: ${url}`)
+
+    // 步骤 1: 获取内容
+    let fetchedContent, fetchedTitle
+    try {
+      const response = await axios.get(url, {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+        },
+        timeout: 15000,
+        maxRedirects: 5
+      })
+
+      const dom = new JSDOM(response.data, { url })
+      const reader = new Readability(dom.window.document)
+      const article = reader.parse()
+
+      if (article) {
+        fetchedContent = article.textContent || ''
+        fetchedTitle = article.title || ''
+      } else {
+        // 如果 Readability 失败，使用 URL 作为内容
+        fetchedContent = url
+        fetchedTitle = 'New Note'
+      }
+    } catch (fetchError) {
+      logger.warn(`Failed to fetch URL content: ${fetchError.message}`)
+      // 获取失败时，使用 URL 作为内容
+      fetchedContent = url
+      fetchedTitle = 'New Note'
+    }
+
+    // 步骤 2: AI 分析
+    let aiResult
+    try {
+      aiResult = await analyzeContent(fetchedContent, url)
+    } catch (aiError) {
+      logger.warn(`AI analysis failed: ${aiError.message}`)
+    }
+
+    // 步骤 3: 准备数据
+    const title = (aiResult && aiResult.title) ? aiResult.title : fetchedTitle
+    const type = (aiResult && aiResult.type) ? aiResult.type : '文章'
+    const summary = (aiResult && aiResult.summary) ? aiResult.summary : ''
+    const content = fetchedContent
+
+    // 步骤 4: 保存到数据库
+    const result = await run(
+      `INSERT INTO contents (user_id, type, title, content, summary, url, source, rating)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      [req.user.id, type, title, content, summary, url, url, null]
+    )
+
+    const contentId = result.lastID
+
+    // 步骤 5: 处理标签（如果 AI 返回了标签）
+    if (aiResult && aiResult.tags && aiResult.tags.length > 0) {
+      for (const tagName of aiResult.tags) {
+        // 查找或创建标签
+        let tag = await queryOne(
+          'SELECT id FROM tags WHERE name = ? AND user_id = ?',
+          [tagName, req.user.id]
+        )
+
+        if (!tag) {
+          // 创建新标签
+          const tagResult = await run(
+            'INSERT INTO tags (name, user_id) VALUES (?, ?)',
+            [tagName, req.user.id]
+          )
+          tag = { id: tagResult.lastID }
+        }
+
+        // 关联标签
+        await run(
+          'INSERT INTO content_tags (content_id, tag_id) VALUES (?, ?)',
+          [contentId, tag.id]
+        )
+      }
+    }
+
+    logger.info(`Quick save successful: content ID ${contentId}`)
+
+    res.status(201).json({
+      id: contentId,
+      title,
+      summary,
+      type,
+      tags: (aiResult && aiResult.tags) ? aiResult.tags : [],
+      message: 'Content saved successfully'
+    })
+  } catch (error) {
+    logger.error('Quick save error:', error)
+    res.status(500).json({ error: error.message || '保存失败' })
+  }
+})
+
+// 新端点：批量保存
+router.post('/batch', async (req, res) => {
+  try {
+    const { items } = req.body
+
+    if (!items || !Array.isArray(items) || items.length === 0) {
+      return res.status(400).json({ error: 'Items array is required' })
+    }
+
+    if (items.length > 50) {
+      return res.status(400).json({ error: '单次最多批量保存 50 条' })
+    }
+
+    logger.info(`Batch save: ${items.length} items`)
+
+    const results = []
+
+    for (const item of items) {
+      try {
+        const { url, timestamp } = item
+
+        if (!url) {
+          results.push({ success: false, error: 'URL is required', url })
+          continue
+        }
+
+        // 检查是否已存在
+        const existing = await queryOne(
+          'SELECT id FROM contents WHERE url = ? AND user_id = ? AND deleted_at IS NULL',
+          [url, req.user.id]
+        )
+
+        if (existing) {
+          results.push({
+            success: true,
+            id: existing.id,
+            message: 'Already exists',
+            url
+          })
+          continue
+        }
+
+        // 获取内容
+        let fetchedContent, fetchedTitle
+        try {
+          const response = await axios.get(url, {
+            headers: {
+              'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+            },
+            timeout: 10000,
+            maxRedirects: 5
+          })
+
+          const dom = new JSDOM(response.data, { url })
+          const reader = new Readability(dom.window.document)
+          const article = reader.parse()
+
+          if (article) {
+            fetchedContent = article.textContent || ''
+            fetchedTitle = article.title || ''
+          } else {
+            fetchedContent = url
+            fetchedTitle = 'New Note'
+          }
+        } catch (fetchError) {
+          fetchedContent = url
+          fetchedTitle = 'New Note'
+        }
+
+        // AI 分析
+        let aiResult
+        try {
+          aiResult = await analyzeContent(fetchedContent, url)
+        } catch (aiError) {
+          logger.warn(`AI analysis failed for ${url}: ${aiError.message}`)
+        }
+
+        const title = (aiResult && aiResult.title) ? aiResult.title : fetchedTitle
+        const type = (aiResult && aiResult.type) ? aiResult.type : '文章'
+        const summary = (aiResult && aiResult.summary) ? aiResult.summary : ''
+
+        // 保存
+        const result = await run(
+          `INSERT INTO contents (user_id, type, title, content, summary, url, source, rating)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+          [req.user.id, type, title, fetchedContent, summary, url, url, null]
+        )
+
+        const contentId = result.lastID
+
+        // 处理标签
+        if (aiResult && aiResult.tags && aiResult.tags.length > 0) {
+          for (const tagName of aiResult.tags) {
+            let tag = await queryOne(
+              'SELECT id FROM tags WHERE name = ? AND user_id = ?',
+              [tagName, req.user.id]
+            )
+
+            if (!tag) {
+              const tagResult = await run(
+                'INSERT INTO tags (name, user_id) VALUES (?, ?)',
+                [tagName, req.user.id]
+              )
+              tag = { id: tagResult.lastID }
+            }
+
+            await run(
+              'INSERT INTO content_tags (content_id, tag_id) VALUES (?, ?)',
+              [contentId, tag.id]
+            )
+          }
+        }
+
+        results.push({
+          success: true,
+          id: contentId,
+          title,
+          url
+        })
+
+      } catch (itemError) {
+        logger.error(`Batch save item error:`, itemError)
+        results.push({
+          success: false,
+          error: itemError.message,
+          url: item.url
+        })
+      }
+    }
+
+    const successCount = results.filter(r => r.success).length
+    logger.info(`Batch save completed: ${successCount}/${items.length} successful`)
+
+    res.json({
+      results,
+      total: items.length,
+      success: successCount,
+      failed: items.length - successCount
+    })
+  } catch (error) {
+    logger.error('Batch save error:', error)
+    res.status(500).json({ error: error.message || '批量保存失败' })
+  }
+})
+
 router.post('/', async (req, res) => {
   try {
-    let { type, title, content, url, source, rating, tags = [] } = req.body
+    let { type, title, content, url, source, rating, tags = [], attachments = [] } = req.body
 
     // Auto-Analyze logic
     let hasUrl = url || (content && /(https?:\/\/[^\s]+)/.test(content));
@@ -254,9 +569,9 @@ router.post('/', async (req, res) => {
     if (!summary) summary = aiSummary;
 
     const result = await run(
-      `INSERT INTO contents (user_id, type, title, content, summary, url, source, rating)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-      [req.user.id, type, title, content || '', summary || null, url || '', source || '', rating || null]
+      `INSERT INTO contents (user_id, type, title, content, summary, url, source, rating, attachments)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [req.user.id, type, title, content || '', summary || null, url || '', source || '', rating || null, attachments.length > 0 ? JSON.stringify(attachments) : null]
     )
 
     const contentId = result.lastID
@@ -285,7 +600,7 @@ router.post('/', async (req, res) => {
 router.put('/:id', async (req, res) => {
   try {
     const { id } = req.params
-    let { type, title, content, summary, url, source, rating, tags } = req.body
+    let { type, title, content, summary, url, source, rating, tags, attachments } = req.body
 
     // Auto-Analyze logic for PUT if content/url changed or explicitly requested
     // (Wait, PUT usually sends what changed. If title is not sent, we keep old title.)
@@ -345,6 +660,10 @@ router.put('/:id', async (req, res) => {
     if (rating !== undefined) {
       updates.push('rating = ?')
       params.push(rating)
+    }
+    if (attachments !== undefined) {
+      updates.push('attachments = ?')
+      params.push(attachments && attachments.length > 0 ? JSON.stringify(attachments) : null)
     }
 
     updates.push('updated_at = CURRENT_TIMESTAMP')

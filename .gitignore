@@ -20,6 +20,10 @@ data/
 
 # *.db-journal
 
+# Uploads
+
+uploads/
+
 
 
 # Environment variables

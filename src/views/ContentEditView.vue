@@ -74,8 +74,8 @@
           <label>标签</label>
           <div class="tag-selector">
             <div class="selected-tags">
-              <span 
-                v-for="tagId in formData.tags" 
+              <span
+                v-for="tagId in formData.tags"
                 :key="tagId"
                 class="tag"
                 :style="{ backgroundColor: getTagColor(tagId) }">
@@ -86,9 +86,9 @@
             <div class="tag-input">
               <select v-model="selectedTagId" @change="addTag">
                 <option value="">选择标签</option>
-                <option 
-                  v-for="tag in availableTags" 
-                  :key="tag.id" 
+                <option
+                  v-for="tag in availableTags"
+                  :key="tag.id"
                   :value="tag.id">
                   {{ tag.name }}
                 </option>
@@ -98,18 +98,48 @@
               </button>
             </div>
             <div v-if="showNewTagInput" class="new-tag-input">
-              <input 
-                v-model="newTagName" 
-                type="text" 
+              <input
+                v-model="newTagName"
+                type="text"
                 placeholder="标签名称"
                 @keyup="handleNewTagKeyup"
               />
-              <input 
-                v-model="newTagColor" 
+              <input
+                v-model="newTagColor"
                 type="color"
               />
               <button type="button" class="btn-primary" @click="createNewTag">创建</button>
               <button type="button" class="btn-default" @click="cancelNewTag">取消</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label>附件</label>
+          <div class="attachment-section">
+            <div class="attachment-list" v-if="formData.attachments && formData.attachments.length > 0">
+              <div v-for="(attachment, index) in formData.attachments" :key="index" class="attachment-item">
+                <span class="attachment-icon">{{ getAttachmentIcon(attachment) }}</span>
+                <span class="attachment-name">{{ attachment.name }}</span>
+                <span class="attachment-size">{{ formatFileSize(attachment.size) }}</span>
+                <button type="button" class="btn-remove" @click="removeAttachment(index)">×</button>
+              </div>
+            </div>
+            <div class="upload-area">
+              <input
+                type="file"
+                ref="fileInput"
+                @change="handleFileSelect"
+                multiple
+                style="display: none"
+              />
+              <button type="button" class="btn-default" @click="$refs.fileInput.click()">
+                📎 选择文件
+              </button>
+              <span class="upload-hint">支持图片、文档、音视频等，单个文件最大 50MB</span>
+            </div>
+            <div v-if="uploading" class="upload-progress">
+              上传中... {{ uploadProgress }}
             </div>
           </div>
         </div>
@@ -125,6 +155,7 @@ import { ref, computed, onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useContentStore } from '../stores/content'
 import { useTagStore } from '../stores/tag'
+import axios from 'axios'
 
 const router = useRouter()
 const route = useRoute()
@@ -134,6 +165,9 @@ const tagStore = useTagStore()
 const isEditMode = computed(() => route.params.id !== undefined && route.name === 'ContentEdit')
 const saving = ref(false)
 const error = ref(null)
+const uploading = ref(false)
+const uploadProgress = ref('')
+const fileInput = ref(null)
 
 const formData = ref({
   type: '',
@@ -141,7 +175,8 @@ const formData = ref({
   content: '',
   source: '',
   rating: null,
-  tags: []
+  tags: [],
+  attachments: []
 })
 
 const selectedTagId = ref('')
@@ -160,6 +195,18 @@ onMounted(async () => {
     await contentStore.fetchContent(route.params.id)
     const content = contentStore.currentContent
     if (content) {
+      // Parse attachments from database
+      let attachments = []
+      if (content.attachments) {
+        try {
+          attachments = typeof content.attachments === 'string'
+            ? JSON.parse(content.attachments)
+            : content.attachments
+        } catch (e) {
+          console.error('Failed to parse attachments:', e)
+        }
+      }
+
       formData.value = {
         type: content.type,
         title: content.title,
@@ -167,7 +214,8 @@ onMounted(async () => {
         summary: content.summary || '',
         source: content.source || '',
         rating: content.rating || null,
-        tags: content.tags ? content.tags.map(t => t.id) : []
+        tags: content.tags ? content.tags.map(t => t.id) : [],
+        attachments: Array.isArray(attachments) ? attachments : []
       }
     }
   }
@@ -175,6 +223,78 @@ onMounted(async () => {
 
 function goBack() {
   router.back()
+}
+
+async function handleFileSelect(event) {
+  const files = event.target.files
+  if (!files || files.length === 0) return
+
+  uploading.value = true
+  uploadProgress.value = '准备上传...'
+  error.value = null
+
+  try {
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i]
+      uploadProgress.value = `上传 ${i + 1}/${files.length}: ${file.name}`
+
+      const formData = new FormData()
+      formData.append('file', file)
+
+      const response = await axios.post('/api/upload/single', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data'
+        }
+      })
+
+      // Add uploaded file info to attachments
+      if (!formData.value.attachments) {
+        formData.value.attachments = []
+      }
+      formData.value.attachments.push(response.data)
+    }
+
+    uploadProgress.value = '上传完成'
+    // Clear file input
+    if (fileInput.value) {
+      fileInput.value.value = ''
+    }
+  } catch (err) {
+    error.value = '上传失败：' + (err.response?.data?.error || err.message)
+  } finally {
+    uploading.value = false
+    setTimeout(() => {
+      uploadProgress.value = ''
+    }, 2000)
+  }
+}
+
+function removeAttachment(index) {
+  formData.value.attachments.splice(index, 1)
+}
+
+function getAttachmentIcon(attachment) {
+  if (!attachment) return '📎'
+  const name = attachment.name || ''
+  const type = attachment.type || ''
+
+  if (type.startsWith('image/') || /\.(jpeg|jpg|gif|png|webp|bmp|svg)$/i.test(name)) return '🖼️'
+  if (/\.(pdf)$/i.test(name)) return '📄'
+  if (/\.(doc|docx)$/i.test(name)) return '📝'
+  if (/\.(xls|xlsx)$/i.test(name)) return '📊'
+  if (/\.(ppt|pptx)$/i.test(name)) return '📽️'
+  if (/\.(zip|rar|7z)$/i.test(name)) return '📦'
+  if (/\.(mp3|wav)$/i.test(name) || type.startsWith('audio/')) return '🎵'
+  if (/\.(mp4|avi|mov)$/i.test(name) || type.startsWith('video/')) return '🎬'
+  return '📎'
+}
+
+function formatFileSize(bytes) {
+  if (!bytes) return '0 B'
+  const k = 1024
+  const sizes = ['B', 'KB', 'MB', 'GB']
+  const i = Math.floor(Math.log(bytes) / Math.log(k))
+  return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i]
 }
 
 async function handleSave() {
@@ -453,5 +573,87 @@ function cancelNewTag() {
 button:disabled {
   opacity: 0.6;
   cursor: not-allowed;
+}
+
+.attachment-section {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.attachment-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px;
+  background: var(--bg-surface-hover);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-color);
+}
+
+.attachment-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: var(--bg-surface);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-color);
+}
+
+.attachment-icon {
+  font-size: 20px;
+  flex-shrink: 0;
+}
+
+.attachment-name {
+  flex: 1;
+  font-size: 14px;
+  color: var(--text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.attachment-size {
+  font-size: 12px;
+  color: var(--text-tertiary);
+  flex-shrink: 0;
+}
+
+.btn-remove {
+  background: none;
+  border: none;
+  color: var(--text-tertiary);
+  font-size: 20px;
+  line-height: 1;
+  padding: 0;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: color 0.2s;
+}
+
+.btn-remove:hover {
+  color: var(--danger);
+}
+
+.upload-area {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.upload-hint {
+  font-size: 12px;
+  color: var(--text-tertiary);
+}
+
+.upload-progress {
+  padding: 8px 12px;
+  background: rgba(59, 130, 246, 0.1);
+  border: 1px solid rgba(59, 130, 246, 0.2);
+  border-radius: var(--radius-md);
+  color: var(--accent-primary);
+  font-size: 13px;
 }
 </style>

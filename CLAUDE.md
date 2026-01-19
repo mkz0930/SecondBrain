@@ -19,7 +19,7 @@ npm install
 ./scripts/start.sh
 
 # Or use Python launcher:
-python scripts/start.py
+python start.py
 
 # Manual startup (requires two terminals):
 npm run server  # Terminal 1: Backend on port 3000

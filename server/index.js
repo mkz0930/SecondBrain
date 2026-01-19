@@ -1,6 +1,8 @@
 import 'dotenv/config'
 import express from 'express'
 import cors from 'cors'
+import { fileURLToPath } from 'url'
+import { dirname, join } from 'path'
 import contentsRouter from './routes/contents.js'
 import tagsRouter from './routes/tags.js'
 import statsRouter from './routes/stats.js'
@@ -10,6 +12,7 @@ import dailySummaryRouter from './routes/daily-summary.js'
 import researchRouter from './routes/research.js'
 import graphRouter from './routes/graph.js'
 import databaseRouter from './routes/database.js'
+import uploadRouter from './routes/upload.js'
 import { initDatabase } from './models/database.js'
 import { ensureDefaultUser, backfillUserOwnership, ensureDefaultAdmin } from './models/users.js'
 import { startSyncScheduler } from './services/sync-scheduler.js'
@@ -17,11 +20,17 @@ import { startDailyScheduler } from './services/daily-scheduler.js'
 import { dailySummaryService } from './services/daily-summary-service.js'
 import logger from './utils/logger.js'
 
+const __filename = fileURLToPath(import.meta.url)
+const __dirname = dirname(__filename)
+
 const app = express()
 const PORT = process.env.PORT || 3000
 
 app.use(cors())
 app.use(express.json())
+
+// 静态文件服务 - 提供上传的文件访问
+app.use('/uploads', express.static(join(__dirname, '../uploads')))
 
 // Request logging middleware
 app.use((req, res, next) => {
@@ -47,6 +56,7 @@ app.use('/api/daily-summary', dailySummaryRouter)
 app.use('/api/research', researchRouter)
 app.use('/api/graph', graphRouter)
 app.use('/api/database', databaseRouter)
+app.use('/api/upload', uploadRouter)
 
 app.get('/health', (req, res) => {
   res.json({ status: 'ok' })

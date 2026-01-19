@@ -758,28 +758,63 @@ export class SyncService {
 
         const data = this.adapter.convertFromFeishuRecord(record)
 
-        // Try to enhance with AI
-        if (data.source || data.content) {
-          try {
-            this.logger.info(`[SyncService] Analyzing content with AI for record ${record.record_id}...`)
-            const input = data.content || data.title || ''
-            const aiResult = await analyzeContent(input, data.source)
-            
-            if (aiResult) {
-              data.title = aiResult.title || data.title
-              data.summary = aiResult.summary || data.summary
-              data.type = aiResult.type || data.type
-              // Only fill content if it's empty and we successfully fetched content from URL
-              if (!data.content && aiResult.fetchedContent) {
-                data.content = aiResult.fetchedContent
-              }
-              this.logger.info(`[SyncService] AI enhanced content: ${data.title}`)
-            }
-          } catch (error) {
-            this.logger.warn(`[SyncService] AI analysis failed for record ${record.record_id}:`, error.message)
-          }
+        // 验证数据：跳过完全空的记录（只需要有内容即可）
+        if (!data.content) {
+          this.logger.warn(`[SyncService] Skipping empty record from Feishu (no content): ${record.record_id}`)
+          stats.details.push({
+            type: 'skip_empty',
+            feishu_record_id: record.record_id,
+            reason: 'No content'
+          })
+          continue
         }
-        
+
+        // AI分析：从内容中提取URL和所有其他字段
+        // 注意：不传入 data.source，让AI自己从内容中提取URL
+        let aiEnhanced = false
+        try {
+          this.logger.info(`[SyncService] Analyzing content with AI for record ${record.record_id}...`)
+          const input = data.content || data.title || ''
+          const aiResult = await analyzeContent(input, null) // 不传入URL，让AI自己提取
+
+          if (aiResult) {
+            // AI解析的字段优先使用
+            data.title = aiResult.title || data.title || '未命名笔记'
+            data.summary = aiResult.summary || data.summary || ''
+            data.type = aiResult.type || data.type || 'note'
+
+            // AI提取的URL（从内容中提取）
+            if (aiResult.url) {
+              data.source = aiResult.url
+            }
+
+            // 如果AI抓取了URL内容，使用AI优化的内容
+            if (aiResult.content) {
+              data.content = aiResult.content
+            } else if (aiResult.fetchedContent) {
+              data.content = aiResult.fetchedContent
+            }
+
+            // 使用AI生成的标签
+            if (aiResult.tags && aiResult.tags.length > 0) {
+              data.tags = aiResult.tags
+            }
+
+            aiEnhanced = true
+            this.logger.info(`[SyncService] AI enhanced content: ${data.title}, type: ${data.type}, url: ${data.source}, tags: ${data.tags?.join(', ')}`)
+          }
+        } catch (error) {
+          this.logger.warn(`[SyncService] AI analysis failed for record ${record.record_id}:`, error.message)
+        }
+
+        // 如果AI分析失败，使用默认值
+        if (!data.title) {
+          data.title = '未命名笔记'
+        }
+        if (!data.type) {
+          data.type = 'note'
+        }
+
         // 创建内容
         const result = await run(
           `INSERT INTO contents (user_id, type, title, content, source, rating, is_favorite, attachments, created_at, updated_at)
@@ -806,12 +841,37 @@ export class SyncService {
         // 创建映射
         await this.createMapping(contentId, record.record_id, data.updated_at, 'from_feishu')
 
+        // 如果AI增强了数据，回填到飞书
+        if (aiEnhanced) {
+          try {
+            this.logger.info(`[SyncService] Backfilling AI-enhanced fields to Feishu: ${record.record_id}`)
+            const tags = (data.tags || []).map(name => ({ name }))
+            const recordToUpdate = this.adapter.convertToFeishuRecord(
+              { ...data, id: contentId },
+              tags
+            )
+
+            await this.adapter.updateRecord(
+              this.tableId.split('_')[0],
+              this.tableId.split('_')[1],
+              record.record_id,
+              recordToUpdate.fields
+            )
+
+            this.logger.info(`[SyncService] Successfully backfilled to Feishu: title="${data.title}", type="${data.type}"`)
+          } catch (error) {
+            this.logger.warn(`[SyncService] Failed to backfill to Feishu: ${error.message}`)
+            // 不影响本地创建的成功状态
+          }
+        }
+
         this.logger.info(`[SyncService] 创建本地内容成功，ID: ${contentId}，飞书记录: ${record.record_id}`)
         stats.success++
         stats.details.push({
           type: 'create_local',
           content_id: contentId,
-          feishu_record_id: record.record_id
+          feishu_record_id: record.record_id,
+          ai_enhanced: aiEnhanced
         })
       } catch (error) {
         this.logger.error(`[SyncService] 创建本地内容失败，飞书记录ID: ${record.record_id}，错误:`, error.message)
@@ -852,67 +912,110 @@ export class SyncService {
           continue
         }
 
-        // --- AI 增强逻辑开始 ---
+        // 2. AI增强逻辑：如果飞书内容有变化，重新进行AI分析
         const originalFeishuUpdatedAt = feishuData.updated_at
         let isAiEnhanced = false
 
-        // 如果飞书有 URL，尝试用 AI 抓取补全/优化 (即使本地已有内容，也根据新URL更新)
-        // 或者如果飞书内容为空但有URL
-        if (feishuData.source) {
-            try {
-              this.logger.info(`[SyncService] Analyzing content with AI for update on record ${record.record_id}...`)
-              // 优先使用飞书标题，其次本地标题
-              const input = feishuData.title || localContent.title || ''
-              const aiResult = await analyzeContent(input, feishuData.source)
-              
-              if (aiResult) {
-                  // 将 AI 结果合并到 feishuData
-                  if (!feishuData.title) feishuData.title = aiResult.title
-                  if (!feishuData.summary) feishuData.summary = aiResult.summary
-                  // 强制使用 AI 生成的结构化内容
-                  if (aiResult.content) {
-                      feishuData.content = aiResult.content
-                  } else if (aiResult.fetchedContent) {
-                      feishuData.content = aiResult.fetchedContent
-                  }
-                  
-                  isAiEnhanced = true
-                  this.logger.info(`[SyncService] AI enhanced content for update: ${feishuData.title}`)
-              }
-            } catch (error) {
-               this.logger.warn(`[SyncService] AI analysis failed for update on record ${record.record_id}:`, error.message)
-            }
-        }
-        // --- AI 增强逻辑结束 ---
+        // 检查内容是否有变化
+        const contentChanged = feishuData.content !== localContent.content
 
-        // 2. 构造合并数据
+        if (contentChanged && feishuData.content) {
+          try {
+            this.logger.info(`[SyncService] Content changed, re-analyzing with AI for record ${record.record_id}...`)
+            const input = feishuData.content || feishuData.title || localContent.title || ''
+            const aiResult = await analyzeContent(input, null) // 不传入URL，让AI从内容中提取
+
+            if (aiResult) {
+              // AI解析的字段优先使用
+              feishuData.title = aiResult.title || feishuData.title || localContent.title
+              feishuData.summary = aiResult.summary || feishuData.summary || localContent.summary
+              feishuData.type = aiResult.type || feishuData.type || localContent.type
+
+              // AI提取的URL（从内容中提取）
+              if (aiResult.url) {
+                feishuData.source = aiResult.url
+              }
+
+              // 使用AI优化的内容
+              if (aiResult.content) {
+                feishuData.content = aiResult.content
+              } else if (aiResult.fetchedContent) {
+                feishuData.content = aiResult.fetchedContent
+              }
+
+              // 使用AI生成的标签
+              if (aiResult.tags && aiResult.tags.length > 0) {
+                feishuData.tags = aiResult.tags
+              }
+
+              isAiEnhanced = true
+              this.logger.info(`[SyncService] AI re-analyzed content: ${feishuData.title}, type: ${feishuData.type}, url: ${feishuData.source}`)
+            }
+          } catch (error) {
+            this.logger.warn(`[SyncService] AI analysis failed for update on record ${record.record_id}:`, error.message)
+          }
+        }
+
+        // 3. 构造合并数据
         const mergedData = {
-          ...localContent, // 基础使用本地数据
-          content: feishuData.content, // 内容强制使用飞书 (或 AI 抓取的结果)
-          summary: localContent.summary || feishuData.summary,
-          // 关键点：如果 AI 增强了数据，更新时间设为 Now，触发下次 Push
+          ...localContent,
+          content: feishuData.content,
+          title: feishuData.title || localContent.title,
+          summary: feishuData.summary || localContent.summary,
+          type: feishuData.type || localContent.type,
+          source: feishuData.source || localContent.source,
+          // 如果AI增强了数据，更新时间设为Now，触发下次Push
           updated_at: isAiEnhanced ? new Date().toISOString() : feishuData.updated_at
         }
 
-        // 3. 处理标签
-        // 获取本地标签，保持不变
-        const localTags = await query(
-          `SELECT t.name FROM tags t 
-           JOIN content_tags ct ON t.id = ct.tag_id 
-           WHERE ct.content_id = ?`,
-          [feishuData.id]
-        )
-        mergedData.tags = localTags.map(t => t.name)
+        // 4. 处理标签：如果AI生成了新标签，使用AI的；否则保留本地的
+        let finalTags
+        if (isAiEnhanced && feishuData.tags && feishuData.tags.length > 0) {
+          finalTags = feishuData.tags
+        } else {
+          const localTags = await query(
+            `SELECT t.name FROM tags t
+             JOIN content_tags ct ON t.id = ct.tag_id
+             WHERE ct.content_id = ?`,
+            [feishuData.id]
+          )
+          finalTags = localTags.map(t => t.name)
+        }
+        mergedData.tags = finalTags
 
-        // 4. 更新本地
+        // 5. 更新本地
         await this.updateLocalContent(feishuData.id, mergedData, originalFeishuUpdatedAt)
-        
+
+        // 6. 如果AI增强了数据，回填到飞书
+        if (isAiEnhanced) {
+          try {
+            this.logger.info(`[SyncService] Backfilling AI-enhanced fields to Feishu: ${record.record_id}`)
+            const tags = finalTags.map(name => ({ name }))
+            const recordToUpdate = this.adapter.convertToFeishuRecord(
+              { ...mergedData, id: feishuData.id },
+              tags
+            )
+
+            await this.adapter.updateRecord(
+              this.tableId.split('_')[0],
+              this.tableId.split('_')[1],
+              record.record_id,
+              recordToUpdate.fields
+            )
+
+            this.logger.info(`[SyncService] Successfully backfilled to Feishu: title="${mergedData.title}", type="${mergedData.type}"`)
+          } catch (error) {
+            this.logger.warn(`[SyncService] Failed to backfill to Feishu: ${error.message}`)
+            // 不影响本地更新的成功状态
+          }
+        }
+
         stats.success++
         stats.details.push({
           type: 'update_local',
           content_id: feishuData.id,
           feishu_record_id: record.record_id,
-          note: 'content_only_update'
+          ai_enhanced: isAiEnhanced
         })
       } catch (error) {
         this.logger.error(`[SyncService] 更新本地内容失败，飞书记录ID: ${record.record_id}，错误:`, error.message)
