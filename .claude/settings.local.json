@@ -26,7 +26,9 @@
       "Bash(tail:*)",
       "Bash(test:*)",
       "Bash(zcat:*)",
-      "Bash(wc:*)"
+      "Bash(wc:*)",
+      "Bash(git push:*)",
+      "Bash(git config:*)"
     ]
   }
 }
