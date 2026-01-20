@@ -1,0 +1,135 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+
+jobs:
+  test:
+    name: 测试
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        node-version: [18.x, 20.x]
+
+    steps:
+    - name: 检出代码
+      uses: actions/checkout@v3
+
+    - name: 设置 Node.js ${{ matrix.node-version }}
+      uses: actions/setup-node@v3
+      with:
+        node-version: ${{ matrix.node-version }}
+        cache: 'npm'
+
+    - name: 安装依赖
+      run: npm ci
+
+    - name: 运行 ESLint
+      run: npm run lint
+      continue-on-error: true
+
+    - name: 运行测试
+      run: npm test
+      env:
+        NODE_ENV: test
+        FEISHU_SYNC_ENABLED: false
+
+    - name: 生成测试覆盖率报告
+      run: npm run test:coverage
+
+    - name: 上传覆盖率报告
+      uses: codecov/codecov-action@v3
+      with:
+        files: ./coverage/coverage-final.json
+        flags: unittests
+        name: codecov-umbrella
+
+  build:
+    name: 构建
+    runs-on: ubuntu-latest
+    needs: test
+
+    steps:
+    - name: 检出代码
+      uses: actions/checkout@v3
+
+    - name: 设置 Node.js
+      uses: actions/setup-node@v3
+      with:
+        node-version: '20.x'
+        cache: 'npm'
+
+    - name: 安装依赖
+      run: npm ci
+
+    - name: 构建前端
+      run: npm run build
+
+    - name: 上传构建产物
+      uses: actions/upload-artifact@v3
+      with:
+        name: dist
+        path: dist/
+        retention-days: 7
+
+  update-requirements:
+    name: 更新需求文档
+    runs-on: ubuntu-latest
+    needs: test
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+
+    steps:
+    - name: 检出代码
+      uses: actions/checkout@v3
+      with:
+        token: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: 设置 Node.js
+      uses: actions/setup-node@v3
+      with:
+        node-version: '20.x'
+
+    - name: 安装依赖
+      run: npm ci
+
+    - name: 更新需求文档
+      run: npm run update-requirements
+
+    - name: 提交需求文档更新
+      run: |
+        git config --local user.email "github-actions[bot]@users.noreply.github.com"
+        git config --local user.name "github-actions[bot]"
+        git add docs/requirements.md docs/test-report.md
+        git diff --staged --quiet || git commit -m "docs: 自动更新需求文档和测试报告 [skip ci]"
+        git push
+
+  deploy:
+    name: 部署
+    runs-on: ubuntu-latest
+    needs: build
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+
+    steps:
+    - name: 检出代码
+      uses: actions/checkout@v3
+
+    - name: 下载构建产物
+      uses: actions/download-artifact@v3
+      with:
+        name: dist
+        path: dist/
+
+    - name: 部署到服务器
+      run: |
+        echo "🚀 部署步骤（根据实际情况配置）"
+        # 示例：使用 rsync 或 scp 部署到服务器
+        # rsync -avz dist/ user@server:/path/to/app/
+
+    - name: 通知部署结果
+      if: always()
+      run: |
+        echo "📢 部署完成"

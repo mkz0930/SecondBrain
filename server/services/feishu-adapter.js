@@ -383,7 +383,7 @@ export class FeishuAdapter {
       '标题': ['标题', 'Title', 'Name'],
       '摘要': ['摘要', 'Summary', 'Abstract'],
       '内容类型': ['内容类型', '分类', 'Type', 'Category'],
-      '内容正文': ['内容正文', '内容', '正文', 'Content', 'Body'],
+      '内容正文': ['内容正文', '内容', '正文', '记录', 'Content', 'Body'],
       '来源': ['来源', '链接', 'URL', 'Source', 'Link', 'url'],
       '评分': ['评分', 'Rating', 'Score'],
       '是否收藏': ['是否收藏', '收藏', 'IsFavorite', 'Favorite'],
