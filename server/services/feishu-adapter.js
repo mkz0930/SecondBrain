@@ -487,7 +487,7 @@ export class FeishuAdapter {
 
     // 提取原始数据
     let title = this.extractText(getFieldValue(['标题', 'Title', 'Name']))
-    const content = this.extractText(getFieldValue(['内容正文', '内容', '正文', 'Content', 'Body']))
+    const content = this.extractText(getFieldValue(['内容正文', '内容', '正文', '记录', 'Content', 'Body']))
     
     // 如果标题为空，且内容不为空，自动截取内容作为标题
     if (!title && content) {
