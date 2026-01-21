@@ -3,32 +3,13 @@
     <div class="header">
       <h1>外挂大脑</h1>
       <div class="header-actions">
-          <input 
-            v-model="searchKeyword" 
-            type="text" 
-            placeholder="搜索内容..." 
+          <input
+            v-model="searchKeyword"
+            type="text"
+            placeholder="搜索内容..."
             @keyup="handleKeyup"
             class="search-input"
           />
-          
-          <!-- Sync Progress -->
-          <div class="sync-status-wrapper" v-if="isSyncing">
-            <div class="sync-info">
-              <span class="sync-text">{{ syncStatus.message }}</span>
-              <span class="sync-percent">{{ syncStatus.progress }}%</span>
-            </div>
-            <div class="progress-bar-sm">
-              <div class="progress-fill-sm" :style="{ width: syncStatus.progress + '%' }"></div>
-            </div>
-          </div>
-
-          <!-- Sync Result Toast -->
-          <transition name="fade">
-            <div v-if="syncResult" class="sync-toast" :class="syncResult.type">
-              <span class="toast-icon">{{ syncResult.type === 'success' ? '✓' : '✕' }}</span>
-              {{ syncResult.message }}
-            </div>
-          </transition>
 
           <button
             class="btn-secondary sync-btn"
@@ -45,6 +26,13 @@
           <button class="btn-secondary" @click="handleLogout">登出</button>
         </div>
     </div>
+
+    <!-- Sync Progress Modal -->
+    <SyncProgressModal
+      :visible="showSyncModal"
+      :status="syncStatus"
+      @close="showSyncModal = false"
+    />
 
     <div class="main-content">
       <aside class="sidebar">
@@ -222,6 +210,7 @@ import { useTagStore } from '../stores/tag'
 import { useUserStore } from '../stores/user'
 import { formatDate, truncateText, getContentTypeName, formatDateTime } from '../utils/helpers'
 import api from '../utils/api'
+import SyncProgressModal from '../components/SyncProgressModal.vue'
 
 const router = useRouter()
 const contentStore = useContentStore()
@@ -236,11 +225,17 @@ const error = computed(() => contentStore.error)
 const pagination = computed(() => contentStore.pagination)
 
 const isSyncing = ref(false)
+const showSyncModal = ref(false)
 const syncStatus = ref({
+  status: 'idle',
+  stage: '',
   message: '',
-  progress: 0
+  progress: 0,
+  total: 0,
+  success: 0,
+  failed: 0,
+  conflicts: 0
 })
-const syncResult = ref(null) // { type: 'success' | 'error', message: string }
 let pollTimer = null
 
 const filters = computed(() => contentStore.filters || {})
@@ -414,11 +409,17 @@ async function pollSyncStatus() {
   try {
     const response = await api.get('/api/feishu/sync/status')
     const status = response.data
-    
-    if (status) {
+
+    if (status && status.status !== 'idle') {
       syncStatus.value = {
+        status: status.status || 'running',
+        stage: status.stage || '',
         message: status.message || '正在同步...',
-        progress: status.progress || 0
+        progress: status.progress || 0,
+        total: status.total || 0,
+        success: status.success || 0,
+        failed: status.failed || 0,
+        conflicts: status.conflicts || 0
       }
 
       if (status.status === 'finished') {
@@ -436,49 +437,58 @@ async function pollSyncStatus() {
 
 async function handleSync() {
   if (isSyncing.value) return
-  
+
   isSyncing.value = true
-  syncResult.value = null
-  syncStatus.value = { message: '准备开始同步...', progress: 0 }
-  
+  showSyncModal.value = true
+  syncStatus.value = {
+    status: 'running',
+    stage: 'init',
+    message: '准备开始同步...',
+    progress: 0,
+    total: 0,
+    success: 0,
+    failed: 0,
+    conflicts: 0
+  }
+
   try {
     // 触发同步
     await api.post('/api/feishu/sync', { direction: 'both' })
-    
+
     // 开始轮询
     pollTimer = setInterval(async () => {
       const status = await pollSyncStatus()
-      
+
       if (status === 'finished' || status === 'failed') {
         clearInterval(pollTimer)
         isSyncing.value = false
-        
+
         if (status === 'finished') {
-          syncResult.value = { type: 'success', message: '同步成功！' }
           // 刷新数据
           await contentStore.fetchContents()
           await tagStore.fetchTags()
-        } else {
-          syncResult.value = { type: 'error', message: syncStatus.value.message || '同步失败' }
         }
-        
-        // 3秒后清除结果提示
+
+        // 3秒后自动关闭弹窗
         setTimeout(() => {
-          syncResult.value = null
+          if (status === 'finished') {
+            showSyncModal.value = false
+          }
         }, 3000)
       }
     }, 1000)
-    
+
   } catch (err) {
     console.error('Sync trigger failed:', err)
     clearInterval(pollTimer)
     isSyncing.value = false
     const errorMessage = err.response?.data?.error || err.response?.data?.message || err.message
-    syncResult.value = { type: 'error', message: '启动同步失败: ' + errorMessage }
-    
-    setTimeout(() => {
-      syncResult.value = null
-    }, 3000)
+    syncStatus.value = {
+      status: 'failed',
+      stage: 'error',
+      message: '启动同步失败: ' + errorMessage,
+      progress: 0
+    }
   }
 }
 </script>
@@ -556,42 +566,6 @@ async function handleSync() {
     color: var(--text-primary);
   }
 
-  /* Sync UI Components */
-  .sync-status-wrapper {
-    display: flex;
-    flex-direction: column;
-    width: 200px;
-    margin-right: 12px;
-  }
-
-  .sync-info {
-    display: flex;
-    justify-content: space-between;
-    font-size: 11px;
-    color: var(--text-secondary);
-    margin-bottom: 4px;
-  }
-
-  .sync-text {
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    max-width: 150px;
-  }
-
-  .progress-bar-sm {
-    height: 4px;
-    background: var(--bg-surface-hover);
-    border-radius: 2px;
-    overflow: hidden;
-  }
-
-  .progress-fill-sm {
-    height: 100%;
-    background: var(--accent-primary);
-    transition: width 0.3s ease;
-  }
-
   .spinner {
     display: inline-block;
     width: 14px;
@@ -605,43 +579,6 @@ async function handleSync() {
 
   @keyframes spin {
     to { transform: rotate(360deg); }
-  }
-
-  .sync-toast {
-    position: absolute;
-    top: 80px;
-    right: 40px;
-    padding: 12px 20px;
-    border-radius: 8px;
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    font-size: 14px;
-    font-weight: 500;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
-    z-index: 1000;
-    backdrop-filter: blur(8px);
-  }
-
-  .sync-toast.success {
-    background: rgba(16, 185, 129, 0.9);
-    color: white;
-  }
-
-  .sync-toast.error {
-    background: rgba(239, 68, 68, 0.9);
-    color: white;
-  }
-
-  .fade-enter-active,
-  .fade-leave-active {
-    transition: opacity 0.3s ease, transform 0.3s ease;
-  }
-
-  .fade-enter-from,
-  .fade-leave-to {
-    opacity: 0;
-    transform: translateY(-10px);
   }
 
   .main-content {
