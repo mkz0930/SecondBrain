@@ -381,7 +381,7 @@ export class FeishuAdapter {
     const fieldMappings = {
       '记录ID': ['记录ID', 'ID', 'RecordID'],
       '标题': ['标题', 'Title', 'Name'],
-      '摘要': ['摘要', 'Summary', 'Abstract'],
+      '摘要': ['摘要', 'Summary', 'Abstract', '简介', '描述', 'Description'],
       '内容类型': ['内容类型', '分类', 'Type', 'Category'],
       '内容正文': ['内容正文', '内容', '正文', '记录', 'Content', 'Body'],
       '来源': ['来源', '链接', 'URL', 'Source', 'Link', 'url'],
@@ -425,6 +425,24 @@ export class FeishuAdapter {
 
           // 特殊类型处理
           if (fieldInfo) {
+             // 3 is Single Select type - convert to string
+             if (fieldInfo.type === 3 && value) {
+                 // 单选字段：确保值是字符串
+                 if (Array.isArray(value)) {
+                   value = value[0] || ''
+                 } else {
+                   value = String(value)
+                 }
+             }
+             // 4 is Multi Select type - convert to array of strings
+             if (fieldInfo.type === 4 && value) {
+                 // 多选字段：确保值是字符串数组
+                 if (!Array.isArray(value)) {
+                   value = [String(value)]
+                 } else {
+                   value = value.map(v => String(v))
+                 }
+             }
              // 15 is Hyperlink type
              if (fieldInfo.type === 15 && value && typeof value === 'string') {
                  value = { text: value, link: value }
@@ -499,7 +517,7 @@ export class FeishuAdapter {
     return {
       id: getFieldValue(['记录ID', 'ID']) ? parseInt(getFieldValue(['记录ID', 'ID']), 10) : null,
       title: title,
-      summary: this.extractText(getFieldValue(['摘要', 'Summary'])),
+      summary: this.extractText(getFieldValue(['摘要', 'Summary', 'Abstract', '简介', '描述', 'Description'])),
       type: typeMap[rawType] || 'note',
       content: content,
       source: this.extractText(getFieldValue(['来源', '链接', 'URL', 'Source', 'Link'])),

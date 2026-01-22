@@ -2,6 +2,7 @@ import { query, queryOne, run } from '../models/database.js'
 import { FeishuAdapter } from './feishu-adapter.js'
 import { syncState } from './sync-state.js'
 import { analyzeContent } from './ai-service.js'
+import { dailySummaryService } from './daily-summary-service.js'
 
 /**
  * 同步服务
@@ -76,6 +77,11 @@ export class SyncService {
       this.logger.info(`[SyncService] 同步完成，总耗时 ${duration}ms`)
 
       await this.completeSyncLog(syncId, 'success', stats)
+
+      // 同步完成后触发每日总结更新
+      if (stats.success > 0) {
+        this.triggerDailySummaryUpdate()
+      }
 
       // 更新状态为完成
       syncState.update(this.userId, {
@@ -634,16 +640,21 @@ export class SyncService {
           // 可以在这里尝试立即作为新记录创建，或者等待下一次同步
           // 为了简单起见，我们移除映射，下次同步会自动检测到"新增"
         } else if (error.message.includes('1254063') || (error.response && error.response.data && JSON.stringify(error.response.data).includes('1254063'))) {
-          // MultiSelectFieldConvFail: Retry without tags and type (which might be a select field)
-          this.logger.warn(`[SyncService] 多选/单选字段转换失败，尝试移除标签和类型后重试。内容ID: ${content.id}`)
-          
+          // MultiSelectFieldConvFail: 这个错误现在应该很少见了，因为我们已经在 feishu-adapter.js 中添加了类型转换
+          // 但保留这个重试逻辑作为后备方案
+          this.logger.warn(`[SyncService] 多选/单选字段转换失败（这不应该发生，请检查字段类型转换逻辑），尝试移除标签和类型后重试。内容ID: ${content.id}`)
+
+          // 记录详细的字段信息以便调试
+          this.logger.debug(`[SyncService] 失败的字段数据: ${JSON.stringify(record.fields)}`)
+
           // Remove tags and type fields
           const retryFields = { ...record.fields }
           // Find keys that might be tags or type
           const sensitiveKeys = ['标签', 'Tags', 'Keywords', '内容类型', '分类', 'Type', 'Category']
-          
+
           Object.keys(retryFields).forEach(key => {
             if (sensitiveKeys.includes(key)) {
+              this.logger.debug(`[SyncService] 移除字段: ${key} = ${JSON.stringify(retryFields[key])}`)
               delete retryFields[key]
             }
           })
@@ -655,16 +666,16 @@ export class SyncService {
               content.feishu_record_id,
               retryFields
             )
-            
+
             await this.updateMapping(content.id, content.feishu_record_id, content.updated_at, 'to_feishu')
-            
-            this.logger.info(`[SyncService] 飞书记录更新成功(无标签): ${content.feishu_record_id}`)
+
+            this.logger.info(`[SyncService] 飞书记录更新成功(部分字段): ${content.feishu_record_id}`)
             stats.success++
             stats.details.push({
               type: 'update_partial',
               content_id: content.id,
               feishu_record_id: content.feishu_record_id,
-              note: 'tags_skipped'
+              note: 'select_fields_skipped'
             })
           } catch (retryError) {
             const errorDetails = retryError.response && retryError.response.data ? JSON.stringify(retryError.response.data) : retryError.message
@@ -774,11 +785,13 @@ export class SyncService {
           continue
         }
 
-        // 检查标题是否为空，如果为空则触发AI分析
+        // 检查标题或摘要是否为空，如果为空则触发AI分析
         let aiEnhanced = false
-        if (!data.title || data.title.trim() === '' || data.title === '未命名笔记') {
+        const needsAiAnalysis = !data.title || data.title.trim() === '' || data.title === '未命名笔记' ||
+          (!data.summary || data.summary.trim() === '')
+        if (needsAiAnalysis) {
           try {
-            this.logger.info(`[SyncService] Title is empty, analyzing with AI for record ${record.record_id}...`)
+            this.logger.info(`[SyncService] Title or summary is empty, analyzing with AI for record ${record.record_id}...`)
             const input = data.content || ''
             const aiResult = await analyzeContent(input, null) // 不传入URL，让AI自己提取
 
@@ -823,13 +836,14 @@ export class SyncService {
 
         // 创建内容
         const result = await run(
-          `INSERT INTO contents (user_id, type, title, content, source, rating, is_favorite, attachments, created_at, updated_at)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          `INSERT INTO contents (user_id, type, title, content, summary, source, rating, is_favorite, attachments, created_at, updated_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
           [
             this.userId,
             data.type,
             data.title,
             data.content,
+            data.summary || '',
             data.source,
             data.rating,
             data.is_favorite,
@@ -934,20 +948,23 @@ export class SyncService {
         const localTagNames = localTags.map(t => t.name)
 
         // 3. 构造合并数据
-        // 以飞书的 content 和 attachments 为准，其他字段以本地为准
+        // 以飞书的 content、summary 和 attachments 为准，其他字段以本地为准
         const mergedData = {
           ...localContent, // 基础使用本地数据
           content: feishuData.content, // 内容强制使用飞书
+          summary: feishuData.summary || localContent.summary || '', // 摘要优先使用飞书
           attachments: feishuData.attachments, // 附件强制使用飞书
           updated_at: feishuData.updated_at, // 更新时间使用飞书的
           tags: localTagNames // 标签使用本地的
         }
 
-        // 4. 检查标题是否为空，如果为空则触发AI分析
+        // 4. 检查标题或摘要是否为空，如果为空则触发AI分析
         let isAiEnhanced = false
-        if (!mergedData.title || mergedData.title.trim() === '' || mergedData.title === '未命名笔记') {
+        const needsAiAnalysis = !mergedData.title || mergedData.title.trim() === '' || mergedData.title === '未命名笔记' ||
+          (!mergedData.summary || mergedData.summary.trim() === '')
+        if (needsAiAnalysis) {
           try {
-            this.logger.info(`[SyncService] Title is empty, analyzing with AI for record ${record.record_id}...`)
+            this.logger.info(`[SyncService] Title or summary is empty, analyzing with AI for record ${record.record_id}...`)
             const input = mergedData.content || ''
             const aiResult = await analyzeContent(input, null)
 
@@ -1218,8 +1235,8 @@ export class SyncService {
    */
   async completeSyncLog(syncId, status, stats, errorMessage = null) {
     await run(
-      `UPDATE feishu_sync_log 
-       SET end_at = ?, status = ?, total_count = ?, success_count = ?, 
+      `UPDATE feishu_sync_log
+       SET end_at = ?, status = ?, total_count = ?, success_count = ?,
            failed_count = ?, conflict_count = ?, error_message = ?, details = ?
        WHERE id = ?`,
       [
@@ -1234,6 +1251,25 @@ export class SyncService {
         syncId
       ]
     )
+  }
+
+  /**
+   * 触发每日总结更新（异步执行，不阻塞同步流程）
+   */
+  triggerDailySummaryUpdate() {
+    const today = new Date().toISOString().split('T')[0]
+    this.logger.info(`[SyncService] 触发每日总结更新: ${today}`)
+
+    // 异步执行，不阻塞
+    dailySummaryService.generateSummary(today)
+      .then(result => {
+        if (result) {
+          this.logger.info(`[SyncService] 每日总结更新成功: ${today}`)
+        }
+      })
+      .catch(error => {
+        this.logger.error(`[SyncService] 每日总结更新失败: ${error.message}`)
+      })
   }
 }
 
