@@ -467,4 +467,62 @@ router.get('/sync/status', (req, res) => {
   res.json(status)
 })
 
+/**
+ * 代理下载飞书附件
+ * 前端无法直接访问飞书 API，需要通过后端代理
+ */
+router.get('/attachment/:fileToken', async (req, res) => {
+  try {
+    const { fileToken } = req.params
+
+    if (!fileToken) {
+      return res.status(400).json({ error: 'Missing file token' })
+    }
+
+    // 获取用户的飞书配置
+    const config = await queryOne(
+      'SELECT app_id, app_secret, access_token, token_expires_at FROM feishu_sync_config WHERE user_id = ?',
+      [req.user.id]
+    )
+
+    if (!config) {
+      return res.status(404).json({ error: 'Feishu not configured' })
+    }
+
+    // 解密 app_secret
+    const decryptedSecret = decryptSecret(config.app_secret, ENCRYPTION_KEY)
+
+    // 创建飞书适配器
+    const adapter = new FeishuAdapter({
+      app_id: config.app_id,
+      app_secret: decryptedSecret,
+      access_token: config.access_token,
+      token_expires_at: config.token_expires_at,
+      logger
+    })
+
+    // 下载文件
+    const { data, contentType } = await adapter.downloadMedia(fileToken)
+
+    // 更新 token（如果刷新了）
+    if (adapter.accessToken !== config.access_token) {
+      await run(
+        'UPDATE feishu_sync_config SET access_token = ?, token_expires_at = ? WHERE user_id = ?',
+        [adapter.accessToken, adapter.tokenExpiresAt.toISOString(), req.user.id]
+      )
+    }
+
+    // 设置缓存头（附件可以缓存较长时间）
+    res.set({
+      'Content-Type': contentType,
+      'Cache-Control': 'public, max-age=86400'
+    })
+
+    res.send(Buffer.from(data))
+  } catch (error) {
+    logger.error('[FeishuAPI] Attachment proxy error:', error)
+    res.status(500).json({ error: error.message })
+  }
+})
+
 export default router

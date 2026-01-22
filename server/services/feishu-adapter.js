@@ -327,6 +327,38 @@ export class FeishuAdapter {
   }
 
   /**
+   * 下载附件文件
+   * @param {string} fileToken - 文件 token
+   * @returns {Promise<{data: Buffer, contentType: string}>} 文件数据和类型
+   */
+  async downloadMedia(fileToken) {
+    await this.ensureAccessToken()
+
+    const url = `${FEISHU_API_BASE}/open-apis/drive/v1/medias/${fileToken}/download`
+
+    this.logger.info(`[FeishuAdapter] Downloading media: ${fileToken}`)
+
+    const response = await axios({
+      method: 'GET',
+      url,
+      headers: {
+        'Authorization': `Bearer ${this.accessToken}`
+      },
+      responseType: 'arraybuffer',
+      timeout: 60000
+    })
+
+    const contentType = response.headers['content-type'] || 'application/octet-stream'
+
+    this.logger.info(`[FeishuAdapter] Media downloaded: ${fileToken}, type: ${contentType}, size: ${response.data.length}`)
+
+    return {
+      data: response.data,
+      contentType
+    }
+  }
+
+  /**
    * 数组分块
    */
   chunkArray(array, size) {

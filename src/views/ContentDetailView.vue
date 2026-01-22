@@ -119,12 +119,12 @@
             <div class="card-title">附件 ({{ feishuAttachments.length }})</div>
             <div class="sidebar-attachments-list">
               <div v-for="(item, index) in feishuAttachments" :key="index" class="sidebar-attachment-item">
-                <a :href="item.url || item.tmp_url" target="_blank" class="sidebar-attachment-link" :title="item.name">
+                <a :href="getAttachmentUrl(item)" target="_blank" class="sidebar-attachment-link" :title="item.name">
                   <span class="attachment-icon">{{ getAttachmentIcon(item) }}</span>
                   <span class="attachment-name">{{ item.name }}</span>
                 </a>
                 <div v-if="isImageAttachment(item)" class="sidebar-attachment-preview">
-                  <img :src="item.url || item.tmp_url" :alt="item.name" loading="lazy" />
+                  <img :src="getAttachmentUrl(item)" :alt="item.name" loading="lazy" />
                 </div>
               </div>
             </div>
@@ -350,6 +350,17 @@ function getAttachmentIcon(attachment) {
   if (/\.(mp3|wav)$/i.test(name)) return '🎵'
   if (/\.(mp4|avi|mov)$/i.test(name)) return '🎬'
   return '📎'
+}
+
+// 获取附件的实际访问 URL（飞书附件需要通过代理访问）
+function getAttachmentUrl(attachment) {
+  if (!attachment) return ''
+  // 如果有 file_token，说明是飞书附件，使用代理 URL
+  if (attachment.file_token) {
+    return `/api/feishu/attachment/${attachment.file_token}`
+  }
+  // 否则使用原始 URL
+  return attachment.url || attachment.tmp_url || ''
 }
 
 onMounted(async () => {
