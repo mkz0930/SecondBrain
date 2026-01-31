@@ -1,7 +1,7 @@
 import express from 'express'
 import { query, queryOne, run } from '../models/database.js'
 import { requireUser } from '../middleware/auth.js'
-import { analyzeContent, optimizeContentFormat } from '../services/ai-service.js'
+import { analyzeContent, analyzeContentSmart, optimizeContentFormat } from '../services/ai-service.js'
 import logger from '../utils/logger.js'
 import axios from 'axios'
 import { JSDOM } from 'jsdom'
@@ -194,11 +194,111 @@ router.post('/analyze', async (req, res) => {
     }
     const result = await analyzeContent(content)
     if (!result) {
-       return res.status(503).json({ error: 'AI Service unavailable (Check API Key)' })
+      return res.status(503).json({ error: 'AI Service unavailable (Check API Key)' })
     }
     res.json(result)
   } catch (error) {
     console.error('Analyze content error:', error)
+    res.status(500).json({ error: error.message })
+  }
+})
+
+// 重新分析已有内容（支持图片分析）
+router.post('/:id/reanalyze', async (req, res) => {
+  try {
+    const { id } = req.params
+
+    // 获取内容
+    const content = await queryOne(
+      'SELECT * FROM contents WHERE id = ? AND user_id = ?',
+      [id, req.user.id]
+    )
+
+    if (!content) {
+      return res.status(404).json({ error: 'Content not found' })
+    }
+
+    // 解析附件
+    let attachments = []
+    if (content.attachments) {
+      try {
+        attachments = JSON.parse(content.attachments)
+      } catch (e) {
+        logger.warn(`Failed to parse attachments for content ${id}`)
+      }
+    }
+
+    logger.info(`[重新分析] 开始分析内容 ${id}，附件数量: ${attachments.length}`)
+
+    // 使用智能分析（支持图片）
+    const aiResult = await analyzeContentSmart(content.content || '', content.url || content.source, attachments)
+
+    if (!aiResult) {
+      return res.status(503).json({ error: 'AI Service unavailable' })
+    }
+
+    // 更新内容
+    const updates = {
+      title: aiResult.title || content.title,
+      summary: aiResult.summary || content.summary,
+      type: aiResult.type || content.type,
+      content: aiResult.content || content.content
+    }
+
+    // 如果 AI 提取了 URL，更新 source
+    if (aiResult.url && !content.source) {
+      updates.source = aiResult.url
+    }
+
+    await run(
+      `UPDATE contents SET title = ?, summary = ?, type = ?, content = ?, source = COALESCE(?, source), updated_at = CURRENT_TIMESTAMP
+       WHERE id = ? AND user_id = ?`,
+      [updates.title, updates.summary, updates.type, updates.content, updates.source || null, id, req.user.id]
+    )
+
+    // 处理 AI 生成的标签
+    if (aiResult.tags && aiResult.tags.length > 0) {
+      for (const tagName of aiResult.tags) {
+        let tag = await queryOne(
+          'SELECT id FROM tags WHERE name = ? AND user_id = ?',
+          [tagName, req.user.id]
+        )
+
+        if (!tag) {
+          const tagResult = await run(
+            'INSERT INTO tags (name, user_id) VALUES (?, ?)',
+            [tagName, req.user.id]
+          )
+          tag = { id: tagResult.lastID }
+        }
+
+        const existing = await queryOne(
+          'SELECT 1 FROM content_tags WHERE content_id = ? AND tag_id = ?',
+          [id, tag.id]
+        )
+        if (!existing) {
+          await run(
+            'INSERT INTO content_tags (content_id, tag_id) VALUES (?, ?)',
+            [id, tag.id]
+          )
+        }
+      }
+    }
+
+    logger.info(`[重新分析] 内容 ${id} 分析完成，新标题: ${updates.title}`)
+
+    res.json({
+      success: true,
+      message: '重新分析完成',
+      data: {
+        id: parseInt(id),
+        ...updates,
+        tags: aiResult.tags || [],
+        isImageAnalysis: aiResult.isImageAnalysis || false
+      }
+    })
+  } catch (error) {
+    logger.error('Reanalyze content error:', error)
     res.status(500).json({ error: error.message })
   }
 })
@@ -491,7 +591,7 @@ router.post('/batch', async (req, res) => {
         })
 
       } catch (itemError) {
-        logger.error(`Batch save item error:`, itemError)
+        logger.error('Batch save item error:', itemError)
         results.push({
           success: false,
           error: itemError.message,
@@ -520,53 +620,64 @@ router.post('/', async (req, res) => {
     let { type, title, content, url, source, rating, tags = [], attachments = [] } = req.body
 
     // Auto-Analyze logic
-    let hasUrl = url || (content && /(https?:\/\/[^\s]+)/.test(content));
-    
+    let hasUrl = url || (content && /(https?:\/\/[^\s]+)/.test(content))
+
     // 如果传入的 url 为空，但内容里有 URL，则提取出来作为 url
     if (!url && content) {
-        const urlMatch = content.match(/(https?:\/\/[^\s]+)/);
-        if (urlMatch) {
-            url = urlMatch[0];
-            hasUrl = true;
-        }
+      const urlMatch = content.match(/(https?:\/\/[^\s]+)/)
+      if (urlMatch) {
+        url = urlMatch[0]
+        hasUrl = true
+      }
     }
 
     // source 字段逻辑：如果没传 source，但有 url，则默认 source = url
     if (!source && url) {
-        source = url;
+      source = url
     }
 
-    const isTitleUnreasonable = !title || title.trim() === '' || 
-                                ['untitled', 'new note', 'no title', '未命名', '无标题'].includes(title.toLowerCase().trim()) || 
-                                title.length < 2;
+    const isTitleUnreasonable = !title || title.trim() === '' ||
+                                ['untitled', 'new note', 'no title', '未命名', '无标题', 'image', '图片'].includes(title.toLowerCase().trim()) ||
+                                title.length < 2
 
-    let aiSummary = '';
-    if (hasUrl && isTitleUnreasonable) {
-        try {
-            const aiResult = await analyzeContent(content || '', url);
-            if (aiResult) {
-                if (aiResult.title && aiResult.title !== '无标题') title = aiResult.title;
-                // AI 分析返回的 url 也可以回填到 url/source
-                if (aiResult.url && !url) url = aiResult.url;
-                if (aiResult.url && !source) source = aiResult.url;
-                
-                if (!type || type === '其他') type = aiResult.type;
-                if (aiResult.summary) aiSummary = aiResult.summary;
-            }
-        } catch (e) {
-            console.error('Auto-analyze failed:', e);
+    let aiSummary = ''
+    let aiTags = []
+
+    // 使用智能分析：支持纯图片内容和普通内容
+    if (isTitleUnreasonable || (attachments.length > 0 && (!content || content.trim().length < 10))) {
+      try {
+        // 使用智能分析，自动检测图片内容
+        const aiResult = await analyzeContentSmart(content || '', url, attachments)
+        if (aiResult) {
+          if (aiResult.title && aiResult.title !== '无标题') title = aiResult.title
+          // AI 分析返回的 url 也可以回填到 url/source
+          if (aiResult.url && !url) url = aiResult.url
+          if (aiResult.url && !source) source = aiResult.url
+
+          if (!type || type === '其他') type = aiResult.type
+          if (aiResult.summary) aiSummary = aiResult.summary
+          if (aiResult.tags && aiResult.tags.length > 0) aiTags = aiResult.tags
+
+          // 如果是图片分析，用 AI 生成的内容替换原内容
+          if (aiResult.isImageAnalysis && aiResult.content) {
+            content = aiResult.content
+            logger.info(`[内容创建] 图片分析完成，标题: ${title}`)
+          }
         }
+      } catch (e) {
+        logger.error('Auto-analyze failed:', e)
+      }
     }
 
     if (!type || !title) {
       // Fallback if AI failed or no URL
       return res.status(400).json({ error: 'Type and title are required' })
     }
-    
+
     // Extract summary from body if we want to support manual summary too
-    let { summary } = req.body;
+    let { summary } = req.body
     // Use AI summary if manual summary is missing
-    if (!summary) summary = aiSummary;
+    if (!summary) summary = aiSummary
 
     const result = await run(
       `INSERT INTO contents (user_id, type, title, content, summary, url, source, rating, attachments)
@@ -576,6 +687,7 @@ router.post('/', async (req, res) => {
 
     const contentId = result.lastID
 
+    // 处理用户传入的标签 ID
     if (tags.length > 0) {
       const placeholders = tags.map(() => '?').join(', ')
       const validTags = await query(
@@ -590,6 +702,38 @@ router.post('/', async (req, res) => {
       }
     }
 
+    // 处理 AI 生成的标签名称
+    if (aiTags.length > 0) {
+      for (const tagName of aiTags) {
+        // 查找或创建标签
+        let tag = await queryOne(
+          'SELECT id FROM tags WHERE name = ? AND user_id = ?',
+          [tagName, req.user.id]
+        )
+
+        if (!tag) {
+          // 创建新标签
+          const tagResult = await run(
+            'INSERT INTO tags (name, user_id) VALUES (?, ?)',
+            [tagName, req.user.id]
+          )
+          tag = { id: tagResult.lastID }
+        }
+
+        // 检查是否已关联
+        const existing = await queryOne(
+          'SELECT 1 FROM content_tags WHERE content_id = ? AND tag_id = ?',
+          [contentId, tag.id]
+        )
+        if (!existing) {
+          await run(
+            'INSERT INTO content_tags (content_id, tag_id) VALUES (?, ?)',
+            [contentId, tag.id]
+          )
+        }
+      }
+    }
+
     res.status(201).json({ id: contentId, message: 'Content created successfully' })
   } catch (error) {
     console.error('Create content error:', error)
@@ -600,7 +744,7 @@ router.post('/', async (req, res) => {
 router.put('/:id', async (req, res) => {
   try {
     const { id } = req.params
-    let { type, title, content, summary, url, source, rating, tags, attachments } = req.body
+    const { type, title, content, summary, url, source, rating, tags, attachments } = req.body
 
     // Auto-Analyze logic for PUT if content/url changed or explicitly requested
     // (Wait, PUT usually sends what changed. If title is not sent, we keep old title.)
@@ -677,24 +821,24 @@ router.put('/:id', async (req, res) => {
     }
 
     // 格式优化：如果内容发生了变化，自动优化格式
-    let contentWasOptimized = false;
+    let contentWasOptimized = false
     if (content !== undefined && content !== existing.content) {
       try {
-        logger.info(`Starting format optimization for content ${id}`);
-        const optimizedContent = await optimizeContentFormat(content);
+        logger.info(`Starting format optimization for content ${id}`)
+        const optimizedContent = await optimizeContentFormat(content)
 
         // 如果优化后的内容与原内容不同，更新数据库
         if (optimizedContent && optimizedContent !== content) {
           await run(
             'UPDATE contents SET content = ? WHERE id = ? AND user_id = ?',
             [optimizedContent, id, req.user.id]
-          );
-          logger.info(`Content ${id} format optimized successfully`);
-          contentWasOptimized = true;
+          )
+          logger.info(`Content ${id} format optimized successfully`)
+          contentWasOptimized = true
         }
       } catch (optimizeError) {
         // 优化失败不影响保存，只记录错误
-        logger.error(`Format optimization failed for content ${id}:`, optimizeError);
+        logger.error(`Format optimization failed for content ${id}:`, optimizeError)
       }
     }
 

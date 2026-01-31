@@ -1,8 +1,0 @@
-{
-  "permissions": {
-    "allow": [
-      "Bash(netstat:*)",
-      "Bash(findstr \":3000 :5173\")"
-    ]
-  }
-}

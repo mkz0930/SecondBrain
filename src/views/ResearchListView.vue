@@ -3,8 +3,18 @@
     <div class="header">
       <h1>研究助手</h1>
       <div class="header-actions">
-        <button class="btn-primary" @click="showCreateDialog = true">+ 新建研究项目</button>
-        <button class="btn-secondary" @click="goBack">返回首页</button>
+        <button
+          class="btn-primary"
+          @click="showCreateDialog = true"
+        >
+          + 新建研究项目
+        </button>
+        <button
+          class="btn-secondary"
+          @click="goBack"
+        >
+          返回首页
+        </button>
       </div>
     </div>
 
@@ -13,29 +23,39 @@
         <div class="filter-card">
           <h3>状态筛选</h3>
           <div class="filter-content">
-            <div class="filter-item"
-                 :class="{ active: filters.status === '' }"
-                 @click="filterByStatus('')">
+            <div
+              class="filter-item"
+              :class="{ active: filters.status === '' }"
+              @click="filterByStatus('')"
+            >
               全部
             </div>
-            <div class="filter-item"
-                 :class="{ active: filters.status === 'draft' }"
-                 @click="filterByStatus('draft')">
+            <div
+              class="filter-item"
+              :class="{ active: filters.status === 'draft' }"
+              @click="filterByStatus('draft')"
+            >
               草稿
             </div>
-            <div class="filter-item"
-                 :class="{ active: filters.status === 'analyzing' }"
-                 @click="filterByStatus('analyzing')">
+            <div
+              class="filter-item"
+              :class="{ active: filters.status === 'analyzing' }"
+              @click="filterByStatus('analyzing')"
+            >
               分析中
             </div>
-            <div class="filter-item"
-                 :class="{ active: filters.status === 'researching' }"
-                 @click="filterByStatus('researching')">
+            <div
+              class="filter-item"
+              :class="{ active: filters.status === 'researching' }"
+              @click="filterByStatus('researching')"
+            >
               研究中
             </div>
-            <div class="filter-item"
-                 :class="{ active: filters.status === 'done' }"
-                 @click="filterByStatus('done')">
+            <div
+              class="filter-item"
+              :class="{ active: filters.status === 'done' }"
+              @click="filterByStatus('done')"
+            >
               已完成
             </div>
           </div>
@@ -43,24 +63,47 @@
       </aside>
 
       <main class="content-area">
-        <div v-if="loading" class="loading">加载中...</div>
-        <div v-else-if="error" class="error">{{ error }}</div>
-        <div v-else-if="projects.length === 0" class="empty">
+        <div
+          v-if="loading"
+          class="loading"
+        >
+          加载中...
+        </div>
+        <div
+          v-else-if="error"
+          class="error"
+        >
+          {{ error }}
+        </div>
+        <div
+          v-else-if="projects.length === 0"
+          class="empty"
+        >
           暂无研究项目，点击右上角"新建研究项目"开始吧！
         </div>
-        <div v-else class="projects-grid">
+        <div
+          v-else
+          class="projects-grid"
+        >
           <div
             v-for="project in projects"
             :key="project.id"
             class="project-card"
-            @click="goToProject(project.id)">
+            @click="goToProject(project.id)"
+          >
             <div class="card-header">
               <h3>{{ project.title }}</h3>
-              <span class="status-badge" :class="getStatusClass(project.status)">
+              <span
+                class="status-badge"
+                :class="getStatusClass(project.status)"
+              >
                 {{ getStatusText(project.status) }}
               </span>
             </div>
-            <div class="card-description" v-if="project.description">
+            <div
+              v-if="project.description"
+              class="card-description"
+            >
               {{ truncate(project.description, 100) }}
             </div>
             <div class="card-stats">
@@ -75,19 +118,38 @@
             </div>
             <div class="card-footer">
               <span class="time-text">创建于 {{ formatDate(project.created_at) }}</span>
-              <div class="card-actions" @click.stop>
-                <button class="btn-icon" @click="editProject(project)" title="编辑">✏️</button>
-                <button class="btn-icon" @click="deleteProject(project.id)" title="删除">🗑️</button>
+              <div
+                class="card-actions"
+                @click.stop
+              >
+                <button
+                  class="btn-icon"
+                  title="编辑"
+                  @click="editProject(project)"
+                >
+                  ✏️
+                </button>
+                <button
+                  class="btn-icon"
+                  title="删除"
+                  @click="deleteProject(project.id)"
+                >
+                  🗑️
+                </button>
               </div>
             </div>
           </div>
         </div>
 
-        <div v-if="hasMore" class="load-more-container">
+        <div
+          v-if="hasMore"
+          class="load-more-container"
+        >
           <button
             class="btn-load-more"
+            :disabled="loading"
             @click="handleLoadMore"
-            :disabled="loading">
+          >
             {{ loading ? '加载中...' : '加载更多' }}
           </button>
         </div>
@@ -95,11 +157,23 @@
     </div>
 
     <!-- 创建/编辑项目对话框 -->
-    <div v-if="showCreateDialog" class="modal-overlay" @click="closeDialog">
-      <div class="modal-content" @click.stop>
+    <div
+      v-if="showCreateDialog"
+      class="modal-overlay"
+      @click="closeDialog"
+    >
+      <div
+        class="modal-content"
+        @click.stop
+      >
         <div class="modal-header">
           <h2>{{ editingProject ? '编辑研究项目' : '新建研究项目' }}</h2>
-          <button class="btn-close" @click="closeDialog">×</button>
+          <button
+            class="btn-close"
+            @click="closeDialog"
+          >
+            ×
+          </button>
         </div>
         <div class="modal-body">
           <div class="form-group">
@@ -109,7 +183,7 @@
               type="text"
               placeholder="例如：Vue 3 组件设计最佳实践"
               class="form-input"
-            />
+            >
           </div>
           <div class="form-group">
             <label>研究目标</label>
@@ -118,12 +192,21 @@
               placeholder="描述你想要研究的内容和目标..."
               class="form-textarea"
               rows="4"
-            ></textarea>
+            />
           </div>
         </div>
         <div class="modal-footer">
-          <button class="btn-secondary" @click="closeDialog">取消</button>
-          <button class="btn-primary" @click="handleSubmit" :disabled="!formData.title">
+          <button
+            class="btn-secondary"
+            @click="closeDialog"
+          >
+            取消
+          </button>
+          <button
+            class="btn-primary"
+            :disabled="!formData.title"
+            @click="handleSubmit"
+          >
             {{ editingProject ? '保存' : '创建' }}
           </button>
         </div>

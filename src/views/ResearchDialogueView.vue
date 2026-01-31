@@ -2,22 +2,40 @@
   <div class="research-dialogue-view">
     <div class="header">
       <div class="header-left">
-        <button class="btn-back" @click="goBack">← 返回</button>
+        <button
+          class="btn-back"
+          @click="goBack"
+        >
+          ← 返回
+        </button>
         <div class="project-info">
           <h1>{{ project?.title || '加载中...' }}</h1>
-          <span class="status-badge" :class="getStatusClass(project?.status)">
+          <span
+            class="status-badge"
+            :class="getStatusClass(project?.status)"
+          >
             {{ getStatusText(project?.status) }}
           </span>
         </div>
       </div>
       <div class="header-actions">
-        <button class="btn-secondary" @click="showMaterials = !showMaterials">
+        <button
+          class="btn-secondary"
+          @click="showMaterials = !showMaterials"
+        >
           📚 资料 ({{ project?.materials?.length || 0 }})
         </button>
-        <button class="btn-secondary" @click="showGraph = !showGraph">
+        <button
+          class="btn-secondary"
+          @click="showGraph = !showGraph"
+        >
           🕸️ 知识图谱
         </button>
-        <button class="btn-primary" @click="handleGenerateReport" :disabled="loading || project?.status !== 'analyzing'">
+        <button
+          class="btn-primary"
+          :disabled="loading || project?.status !== 'analyzing'"
+          @click="handleGenerateReport"
+        >
           📄 生成报告
         </button>
       </div>
@@ -26,11 +44,19 @@
     <div class="main-content">
       <!-- 左侧：对话区域 -->
       <div class="dialogue-area">
-        <div class="dialogue-container" ref="dialogueContainer">
+        <div
+          ref="dialogueContainer"
+          class="dialogue-container"
+        >
           <!-- 项目描述 -->
-          <div class="message-group" v-if="project?.description">
+          <div
+            v-if="project?.description"
+            class="message-group"
+          >
             <div class="message system-message">
-              <div class="message-icon">🎯</div>
+              <div class="message-icon">
+                🎯
+              </div>
               <div class="message-content">
                 <strong>研究目标：</strong>{{ project.description }}
               </div>
@@ -38,66 +64,114 @@
           </div>
 
           <!-- 问题列表 -->
-          <div class="message-group" v-for="question in questions" :key="question.id">
+          <div
+            v-for="question in questions"
+            :key="question.id"
+            class="message-group"
+          >
             <div class="message assistant-message">
-              <div class="message-icon">🤖</div>
+              <div class="message-icon">
+                🤖
+              </div>
               <div class="message-content">
                 <strong>问题 {{ question.order_index }}：</strong>{{ question.question }}
               </div>
             </div>
 
-            <div class="message user-message" v-if="question.answer">
-              <div class="message-icon">👤</div>
+            <div
+              v-if="question.answer"
+              class="message user-message"
+            >
+              <div class="message-icon">
+                👤
+              </div>
               <div class="message-content">
                 {{ question.answer }}
               </div>
             </div>
 
             <!-- 回答输入框 -->
-            <div class="answer-input-area" v-if="!question.answer && question.status === 'pending'">
+            <div
+              v-if="!question.answer && question.status === 'pending'"
+              class="answer-input-area"
+            >
               <textarea
                 v-model="currentAnswer"
                 placeholder="请输入你的回答..."
                 class="answer-textarea"
                 rows="3"
                 @keydown.ctrl.enter="submitAnswer(question.id)"
-              ></textarea>
-              <button class="btn-submit" @click="submitAnswer(question.id)" :disabled="!currentAnswer.trim()">
+              />
+              <button
+                class="btn-submit"
+                :disabled="!currentAnswer.trim()"
+                @click="submitAnswer(question.id)"
+              >
                 提交回答
               </button>
             </div>
           </div>
 
           <!-- 操作提示 -->
-          <div class="action-hints" v-if="project">
-            <div class="hint-card" v-if="project.status === 'draft'">
-              <div class="hint-icon">💡</div>
+          <div
+            v-if="project"
+            class="action-hints"
+          >
+            <div
+              v-if="project.status === 'draft'"
+              class="hint-card"
+            >
+              <div class="hint-icon">
+                💡
+              </div>
               <div class="hint-content">
                 <strong>开始研究</strong>
                 <p>点击下方按钮开始需求分析，AI 将帮你生成研究问题。</p>
-                <button class="btn-primary" @click="handleAnalyzeRequirements" :disabled="loading">
+                <button
+                  class="btn-primary"
+                  :disabled="loading"
+                  @click="handleAnalyzeRequirements"
+                >
                   {{ loading ? '分析中...' : '开始需求分析' }}
                 </button>
               </div>
             </div>
 
-            <div class="hint-card" v-if="project.status === 'analyzing' && allQuestionsAnswered">
-              <div class="hint-icon">📚</div>
+            <div
+              v-if="project.status === 'analyzing' && allQuestionsAnswered"
+              class="hint-card"
+            >
+              <div class="hint-icon">
+                📚
+              </div>
               <div class="hint-content">
                 <strong>收集资料</strong>
                 <p>所有问题已回答，现在可以开始收集相关资料。</p>
-                <button class="btn-primary" @click="handleCollectMaterials" :disabled="loading">
+                <button
+                  class="btn-primary"
+                  :disabled="loading"
+                  @click="handleCollectMaterials"
+                >
                   {{ loading ? '收集中...' : '开始收集资料' }}
                 </button>
               </div>
             </div>
 
-            <div class="hint-card" v-if="project.status === 'researching'">
-              <div class="hint-icon">🔍</div>
+            <div
+              v-if="project.status === 'researching'"
+              class="hint-card"
+            >
+              <div class="hint-icon">
+                🔍
+              </div>
               <div class="hint-content">
                 <strong>分析资料</strong>
                 <p>资料已收集，现在可以分析资料之间的关联关系。</p>
-                <button class="btn-primary" @click="handleProcessMaterials" :disabled="loading">
+                <button
+                  class="btn-primary"
+                  :disabled="loading"
+                  @click="handleProcessMaterials"
+                >
                   {{ loading ? '分析中...' : '开始分析资料' }}
                 </button>
               </div>
@@ -105,63 +179,116 @@
           </div>
 
           <!-- 加载状态 -->
-          <div class="loading-message" v-if="loading">
-            <div class="spinner"></div>
+          <div
+            v-if="loading"
+            class="loading-message"
+          >
+            <div class="spinner" />
             <span>处理中...</span>
           </div>
         </div>
       </div>
 
       <!-- 右侧：资料面板 -->
-      <div class="side-panel" v-if="showMaterials">
+      <div
+        v-if="showMaterials"
+        class="side-panel"
+      >
         <div class="panel-header">
           <h3>📚 收集的资料</h3>
-          <button class="btn-close" @click="showMaterials = false">×</button>
+          <button
+            class="btn-close"
+            @click="showMaterials = false"
+          >
+            ×
+          </button>
         </div>
         <div class="panel-content">
-          <div v-if="!project?.materials || project.materials.length === 0" class="empty-state">
+          <div
+            v-if="!project?.materials || project.materials.length === 0"
+            class="empty-state"
+          >
             暂无资料
           </div>
-          <div v-else class="materials-list">
+          <div
+            v-else
+            class="materials-list"
+          >
             <div
               v-for="material in sortedMaterials"
               :key="material.id"
               class="material-card"
-              @click="selectedMaterial = material">
+              @click="selectedMaterial = material"
+            >
               <div class="material-header">
                 <span class="material-type">{{ getMaterialTypeIcon(material.type) }}</span>
                 <span class="material-relevance">{{ (material.relevance_score * 100).toFixed(0) }}%</span>
               </div>
               <h4>{{ material.title }}</h4>
-              <p class="material-source">{{ material.source }}</p>
-              <p class="material-preview">{{ truncate(material.content, 100) }}</p>
+              <p class="material-source">
+                {{ material.source }}
+              </p>
+              <p class="material-preview">
+                {{ truncate(material.content, 100) }}
+              </p>
             </div>
           </div>
         </div>
       </div>
 
       <!-- 知识图谱面板 -->
-      <div class="side-panel graph-panel" v-if="showGraph">
+      <div
+        v-if="showGraph"
+        class="side-panel graph-panel"
+      >
         <div class="panel-header">
           <h3>🕸️ 知识图谱</h3>
-          <button class="btn-close" @click="showGraph = false">×</button>
+          <button
+            class="btn-close"
+            @click="showGraph = false"
+          >
+            ×
+          </button>
         </div>
         <div class="panel-content">
-          <KnowledgeGraph v-if="graphData" :data="graphData" />
-          <div v-else class="empty-state">
+          <KnowledgeGraph
+            v-if="graphData"
+            :data="graphData"
+          />
+          <div
+            v-else
+            class="empty-state"
+          >
             <p>暂无图谱数据</p>
-            <button class="btn-secondary" @click="loadGraphData">加载图谱</button>
+            <button
+              class="btn-secondary"
+              @click="loadGraphData"
+            >
+              加载图谱
+            </button>
           </div>
         </div>
       </div>
     </div>
 
     <!-- 资料详情模态框 -->
-    <div v-if="selectedMaterial" class="modal-overlay" @click="selectedMaterial = null">
-      <div class="modal-content material-detail" @click.stop>
+    <div
+      v-if="selectedMaterial"
+      class="modal-overlay"
+      @click="selectedMaterial = null"
+    >
+      <div
+        class="modal-content material-detail"
+        @click.stop
+      >
         <div class="modal-header">
           <h2>{{ selectedMaterial.title }}</h2>
-          <button class="btn-close" @click="selectedMaterial = null">×</button>
+          <button
+            class="btn-close"
+            @click="selectedMaterial = null"
+          >
+            ×
+          </button>
         </div>
         <div class="modal-body">
           <div class="detail-meta">
@@ -183,18 +310,43 @@
     </div>
 
     <!-- 报告模态框 -->
-    <div v-if="showReport" class="modal-overlay" @click="showReport = false">
-      <div class="modal-content report-modal" @click.stop>
+    <div
+      v-if="showReport"
+      class="modal-overlay"
+      @click="showReport = false"
+    >
+      <div
+        class="modal-content report-modal"
+        @click.stop
+      >
         <div class="modal-header">
           <h2>📄 研究报告</h2>
-          <button class="btn-close" @click="showReport = false">×</button>
+          <button
+            class="btn-close"
+            @click="showReport = false"
+          >
+            ×
+          </button>
         </div>
         <div class="modal-body">
-          <div class="report-content" v-html="renderedReport"></div>
+          <div
+            class="report-content"
+            v-html="renderedReport"
+          />
         </div>
         <div class="modal-footer">
-          <button class="btn-secondary" @click="copyReport">复制报告</button>
-          <button class="btn-primary" @click="showReport = false">关闭</button>
+          <button
+            class="btn-secondary"
+            @click="copyReport"
+          >
+            复制报告
+          </button>
+          <button
+            class="btn-primary"
+            @click="showReport = false"
+          >
+            关闭
+          </button>
         </div>
       </div>
     </div>

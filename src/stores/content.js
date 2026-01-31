@@ -158,6 +158,17 @@ export const useContentStore = defineStore('content', () => {
     }
   }
 
+  // 重新分析内容（支持图片分析）
+  async function reanalyzeContent(id) {
+    try {
+      const response = await api.post(`/api/contents/${id}/reanalyze`)
+      return response.data
+    } catch (err) {
+      console.error('Failed to reanalyze content:', err)
+      throw err
+    }
+  }
+
   // 更新筛选条件
   function updateFilters(newFilters) {
     filters.value = { ...filters.value, ...newFilters }
@@ -185,6 +196,7 @@ export const useContentStore = defineStore('content', () => {
     deleteContent,
     toggleFavorite,
     recordAccess,
+    reanalyzeContent,
     updateFilters,
     updatePage,
     loadMore

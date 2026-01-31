@@ -3,11 +3,20 @@
     <!-- 顶部工具栏 -->
     <div class="graph-toolbar">
       <div class="toolbar-left">
-        <button @click="goToHome" class="btn-back" title="返回首页">
+        <button
+          class="btn-back"
+          title="返回首页"
+          @click="goToHome"
+        >
           ← 返回首页
         </button>
-        <h1 class="page-title">知识图谱</h1>
-        <div class="stats" v-if="graphStore.hasData">
+        <h1 class="page-title">
+          知识图谱
+        </h1>
+        <div
+          v-if="graphStore.hasData"
+          class="stats"
+        >
           <span class="stat-item">
             <span class="stat-label">节点:</span>
             <span class="stat-value">{{ graphStore.nodeCount }}</span>
@@ -29,16 +38,36 @@
             class="filter-select"
             @change="applyFilters"
           >
-            <option value="">全部类型</option>
-            <option value="随笔">随笔</option>
-            <option value="文章">文章</option>
-            <option value="音视频">音视频</option>
-            <option value="书籍">书籍</option>
-            <option value="随便">随便</option>
-            <option value="抖音">抖音</option>
-            <option value="公众号">公众号</option>
-            <option value="文档">文档</option>
-            <option value="其他">其他</option>
+            <option value="">
+              全部类型
+            </option>
+            <option value="随笔">
+              随笔
+            </option>
+            <option value="文章">
+              文章
+            </option>
+            <option value="音视频">
+              音视频
+            </option>
+            <option value="书籍">
+              书籍
+            </option>
+            <option value="随便">
+              随便
+            </option>
+            <option value="抖音">
+              抖音
+            </option>
+            <option value="公众号">
+              公众号
+            </option>
+            <option value="文档">
+              文档
+            </option>
+            <option value="其他">
+              其他
+            </option>
           </select>
 
           <!-- 标签筛选 -->
@@ -48,7 +77,9 @@
             class="filter-select"
             @change="applyFilters"
           >
-            <option value="">全部标签</option>
+            <option value="">
+              全部标签
+            </option>
             <option
               v-for="tag in tagStore.tags"
               :key="tag.id"
@@ -62,21 +93,28 @@
           <div class="filter-input-group">
             <label>最小连接:</label>
             <input
-              type="number"
               v-model.number="minConnections"
+              type="number"
               min="0"
               max="10"
               class="filter-input"
               @change="applyFilters"
-            />
+            >
           </div>
         </div>
 
         <!-- 操作按钮 -->
-        <button @click="resetFilters" class="btn btn-secondary">
+        <button
+          class="btn btn-secondary"
+          @click="resetFilters"
+        >
           重置筛选
         </button>
-        <button @click="refreshGraph" class="btn btn-primary" :disabled="graphStore.loading">
+        <button
+          class="btn btn-primary"
+          :disabled="graphStore.loading"
+          @click="refreshGraph"
+        >
           {{ graphStore.loading ? '加载中...' : '刷新' }}
         </button>
       </div>
@@ -94,51 +132,89 @@
         />
 
         <!-- 加载状态 -->
-        <div v-else-if="graphStore.loading" class="loading-state">
-          <div class="spinner"></div>
+        <div
+          v-else-if="graphStore.loading"
+          class="loading-state"
+        >
+          <div class="spinner" />
           <p>正在生成知识图谱...</p>
         </div>
 
         <!-- 错误状态 -->
-        <div v-else-if="graphStore.error" class="error-state">
-          <p class="error-message">{{ graphStore.error }}</p>
-          <button @click="refreshGraph" class="btn btn-primary">重试</button>
+        <div
+          v-else-if="graphStore.error"
+          class="error-state"
+        >
+          <p class="error-message">
+            {{ graphStore.error }}
+          </p>
+          <button
+            class="btn btn-primary"
+            @click="refreshGraph"
+          >
+            重试
+          </button>
         </div>
 
         <!-- 空状态 -->
-        <div v-else class="empty-state">
+        <div
+          v-else
+          class="empty-state"
+        >
           <p>暂无数据，请先添加内容</p>
         </div>
       </div>
 
       <!-- 侧边详情面板 -->
       <transition name="slide">
-        <div v-if="graphStore.selectedNode" class="detail-panel">
+        <div
+          v-if="graphStore.selectedNode"
+          class="detail-panel"
+        >
           <div class="panel-header">
             <h3>节点详情</h3>
-            <button @click="closeDetail" class="btn-close">×</button>
+            <button
+              class="btn-close"
+              @click="closeDetail"
+            >
+              ×
+            </button>
           </div>
 
           <div class="panel-content">
             <!-- 节点基本信息 -->
             <div class="node-info">
-              <div class="node-type-badge" :style="{ backgroundColor: graphStore.selectedNode.itemStyle?.color }">
+              <div
+                class="node-type-badge"
+                :style="{ backgroundColor: graphStore.selectedNode.itemStyle?.color }"
+              >
                 {{ graphStore.selectedNode.type === 'content' ? '内容' : '标签' }}
               </div>
-              <h4 class="node-name">{{ graphStore.selectedNode.name }}</h4>
+              <h4 class="node-name">
+                {{ graphStore.selectedNode.name }}
+              </h4>
             </div>
 
             <!-- 内容节点详情 -->
-            <div v-if="graphStore.selectedNode.type === 'content'" class="content-detail">
+            <div
+              v-if="graphStore.selectedNode.type === 'content'"
+              class="content-detail"
+            >
               <div class="detail-item">
                 <span class="detail-label">类型:</span>
                 <span class="detail-value">{{ graphStore.selectedNode.data.type }}</span>
               </div>
-              <div class="detail-item" v-if="graphStore.selectedNode.data.source">
+              <div
+                v-if="graphStore.selectedNode.data.source"
+                class="detail-item"
+              >
                 <span class="detail-label">来源:</span>
                 <span class="detail-value">{{ graphStore.selectedNode.data.source }}</span>
               </div>
-              <div class="detail-item" v-if="graphStore.selectedNode.data.rating">
+              <div
+                v-if="graphStore.selectedNode.data.rating"
+                class="detail-item"
+              >
                 <span class="detail-label">评分:</span>
                 <span class="detail-value">{{ '⭐'.repeat(graphStore.selectedNode.data.rating) }}</span>
               </div>
@@ -153,14 +229,20 @@
 
               <!-- 操作按钮 -->
               <div class="detail-actions">
-                <button @click="viewContent(graphStore.selectedNode.data.id)" class="btn btn-primary btn-sm">
+                <button
+                  class="btn btn-primary btn-sm"
+                  @click="viewContent(graphStore.selectedNode.data.id)"
+                >
                   查看详情
                 </button>
               </div>
             </div>
 
             <!-- 标签节点详情 -->
-            <div v-else-if="graphStore.selectedNode.type === 'tag'" class="tag-detail">
+            <div
+              v-else-if="graphStore.selectedNode.type === 'tag'"
+              class="tag-detail"
+            >
               <div class="detail-item">
                 <span class="detail-label">关联内容:</span>
                 <span class="detail-value">{{ graphStore.selectedNode.data.content_count }} 个</span>
@@ -168,7 +250,10 @@
             </div>
 
             <!-- 相关节点 -->
-            <div v-if="graphStore.relatedNodes.length > 0" class="related-nodes">
+            <div
+              v-if="graphStore.relatedNodes.length > 0"
+              class="related-nodes"
+            >
               <h5>相关节点</h5>
               <ul class="related-list">
                 <li

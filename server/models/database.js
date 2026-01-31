@@ -102,7 +102,7 @@ export async function initDatabase() {
 
   return new Promise((resolve, reject) => {
     database.serialize(() => {
-      ;(async () => {
+      (async () => {
         try {
           await runAsync(
             database,

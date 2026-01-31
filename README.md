@@ -201,19 +201,20 @@ SecondBrain/
 ## 文档
 
 ### 项目文档
-- [完整项目文档](PROJECT.md) - 项目概览和索引
-- [更新日志](docs/changelog.md) - 版本更新记录
+- [需求文档](docs/REQUIREMENTS.md) - 项目整体需求
+- [架构设计](docs/ARCHITECTURE.md) - 系统架构
+- [更新日志](docs/CHANGELOG.md) - 版本更新记录
 
 ### Web 端文档
 - [用户使用指南](docs/user-guide.md) - 功能使用说明
 - [API 文档](docs/api.md) - REST API 接口
 - [数据库结构](docs/database.md) - 数据库设计
-- [架构设计](docs/architecture.md) - 系统架构
+- [架构设计](docs/ARCHITECTURE.md) - 系统架构
 - [开发指南](docs/development.md) - 开发环境配置
 - [研究助手使用指南](docs/research-user-guide.md) - 研究助手教程
 - [知识图谱功能](docs/knowledge-graph.md) - 知识图谱说明
 - [附件功能](docs/attachment-feature.md) - 附件管理
-- [部署指南](DEPLOYMENT.md) - 生产环境部署
+- [部署指南](docs/DEPLOYMENT.md) - 生产环境部署
 
 ### Android 端文档 🆕
 - [Android 快速开始](mobile/QUICKSTART.md) - 5分钟上手

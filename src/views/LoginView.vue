@@ -1,39 +1,53 @@
 <template>
   <div class="login-container">
     <div class="login-card">
-      <h1 class="login-title">外挂大脑</h1>
-      <p class="login-subtitle">个人知识管理系统</p>
+      <h1 class="login-title">
+        外挂大脑
+      </h1>
+      <p class="login-subtitle">
+        个人知识管理系统
+      </p>
       
-      <form @submit.prevent="handleLogin" class="login-form">
+      <form
+        class="login-form"
+        @submit.prevent="handleLogin"
+      >
         <div class="form-group">
           <label for="username">用户名</label>
           <input 
-            type="text" 
             id="username" 
             v-model="username" 
+            type="text" 
             placeholder="请输入用户名"
             required
             autocomplete="username"
-          />
+          >
         </div>
         
         <div class="form-group">
           <label for="password">密码</label>
           <input 
-            type="password" 
             id="password" 
             v-model="password" 
+            type="password" 
             placeholder="请输入密码"
             required
             autocomplete="current-password"
-          />
+          >
         </div>
         
-        <div v-if="errorMessage" class="error-message">
+        <div
+          v-if="errorMessage"
+          class="error-message"
+        >
           {{ errorMessage }}
         </div>
         
-        <button type="submit" class="login-button" :disabled="isLoading">
+        <button
+          type="submit"
+          class="login-button"
+          :disabled="isLoading"
+        >
           {{ isLoading ? '登录中...' : '登录' }}
         </button>
       </form>
@@ -43,7 +57,11 @@
       </div>
       
       <div class="wechat-login">
-        <button type="button" class="wechat-button" disabled>
+        <button
+          type="button"
+          class="wechat-button"
+          disabled
+        >
           微信登录（暂未配置）
         </button>
       </div>

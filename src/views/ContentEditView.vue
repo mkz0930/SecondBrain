@@ -1,10 +1,24 @@
 <template>
   <div class="edit-view">
     <div class="header">
-      <button class="btn-default" @click="goBack">← 返回首页</button>
+      <button
+        class="btn-default"
+        @click="goBack"
+      >
+        ← 返回首页
+      </button>
       <div class="actions">
-        <button class="btn-default" @click="goBack">取消</button>
-        <button class="btn-primary" @click="handleSave" :disabled="saving">
+        <button
+          class="btn-default"
+          @click="goBack"
+        >
+          取消
+        </button>
+        <button
+          class="btn-primary"
+          :disabled="saving"
+          @click="handleSave"
+        >
           {{ saving ? '保存中...' : '保存' }}
         </button>
       </div>
@@ -13,15 +27,34 @@
     <div class="form-container">
       <h1>{{ isEditMode ? '编辑内容' : '新建内容' }}</h1>
 
-      <form @submit.prevent="handleSave" class="content-form">
+      <form
+        class="content-form"
+        @submit.prevent="handleSave"
+      >
         <div class="form-group">
           <label>类型 <span class="required">*</span></label>
-          <select v-model="formData.type" required>
-            <option value="">请选择类型</option>
-            <option value="note">随笔</option>
-            <option value="article">文章</option>
-            <option value="media">音视频</option>
-            <option value="book">书籍</option>
+          <select
+            v-model="formData.type"
+            required
+          >
+            <option value="">
+              请选择类型
+            </option>
+            <option value="note">
+              随笔
+            </option>
+            <option value="article">
+              文章
+            </option>
+            <option value="media">
+              音视频
+            </option>
+            <option value="book">
+              书籍
+            </option>
+            <option value="bilibili">
+              B站
+            </option>
           </select>
         </div>
 
@@ -33,7 +66,7 @@
             placeholder="请输入标题"
             maxlength="200"
             required
-          />
+          >
         </div>
 
         <div class="form-group">
@@ -42,7 +75,7 @@
             v-model="formData.content" 
             placeholder="请输入内容"
             rows="15"
-          ></textarea>
+          />
         </div>
 
         <div class="form-group">
@@ -52,7 +85,7 @@
             type="text" 
             placeholder="URL、书名等"
             maxlength="500"
-          />
+          >
         </div>
 
         <div class="form-group">
@@ -63,10 +96,17 @@
               :key="star"
               class="star"
               :class="{ active: formData.rating >= star }"
-              @click="formData.rating = star">
+              @click="formData.rating = star"
+            >
               ★
             </span>
-            <button type="button" class="clear-rating" @click="formData.rating = null">清除评分</button>
+            <button
+              type="button"
+              class="clear-rating"
+              @click="formData.rating = null"
+            >
+              清除评分
+            </button>
           </div>
         </div>
 
@@ -78,38 +118,67 @@
                 v-for="tagId in formData.tags"
                 :key="tagId"
                 class="tag"
-                :style="{ backgroundColor: getTagColor(tagId) }">
+                :style="{ backgroundColor: getTagColor(tagId) }"
+              >
                 {{ getTagName(tagId) }}
-                <button type="button" @click="removeTag(tagId)">×</button>
+                <button
+                  type="button"
+                  @click="removeTag(tagId)"
+                >×</button>
               </span>
             </div>
             <div class="tag-input">
-              <select v-model="selectedTagId" @change="addTag">
-                <option value="">选择标签</option>
+              <select
+                v-model="selectedTagId"
+                @change="addTag"
+              >
+                <option value="">
+                  选择标签
+                </option>
                 <option
                   v-for="tag in availableTags"
                   :key="tag.id"
-                  :value="tag.id">
+                  :value="tag.id"
+                >
                   {{ tag.name }}
                 </option>
               </select>
-              <button type="button" class="btn-default" @click="showNewTagInput = true">
+              <button
+                type="button"
+                class="btn-default"
+                @click="showNewTagInput = true"
+              >
                 + 新建标签
               </button>
             </div>
-            <div v-if="showNewTagInput" class="new-tag-input">
+            <div
+              v-if="showNewTagInput"
+              class="new-tag-input"
+            >
               <input
                 v-model="newTagName"
                 type="text"
                 placeholder="标签名称"
                 @keyup="handleNewTagKeyup"
-              />
+              >
               <input
                 v-model="newTagColor"
                 type="color"
-              />
-              <button type="button" class="btn-primary" @click="createNewTag">创建</button>
-              <button type="button" class="btn-default" @click="cancelNewTag">取消</button>
+              >
+              <button
+                type="button"
+                class="btn-primary"
+                @click="createNewTag"
+              >
+                创建
+              </button>
+              <button
+                type="button"
+                class="btn-default"
+                @click="cancelNewTag"
+              >
+                取消
+              </button>
             </div>
           </div>
         </div>
@@ -117,34 +186,59 @@
         <div class="form-group">
           <label>附件</label>
           <div class="attachment-section">
-            <div class="attachment-list" v-if="formData.attachments && formData.attachments.length > 0">
-              <div v-for="(attachment, index) in formData.attachments" :key="index" class="attachment-item">
+            <div
+              v-if="formData.attachments && formData.attachments.length > 0"
+              class="attachment-list"
+            >
+              <div
+                v-for="(attachment, index) in formData.attachments"
+                :key="index"
+                class="attachment-item"
+              >
                 <span class="attachment-icon">{{ getAttachmentIcon(attachment) }}</span>
                 <span class="attachment-name">{{ attachment.name }}</span>
                 <span class="attachment-size">{{ formatFileSize(attachment.size) }}</span>
-                <button type="button" class="btn-remove" @click="removeAttachment(index)">×</button>
+                <button
+                  type="button"
+                  class="btn-remove"
+                  @click="removeAttachment(index)"
+                >
+                  ×
+                </button>
               </div>
             </div>
             <div class="upload-area">
               <input
-                type="file"
                 ref="fileInput"
-                @change="handleFileSelect"
+                type="file"
                 multiple
                 style="display: none"
-              />
-              <button type="button" class="btn-default" @click="$refs.fileInput.click()">
+                @change="handleFileSelect"
+              >
+              <button
+                type="button"
+                class="btn-default"
+                @click="$refs.fileInput.click()"
+              >
                 📎 选择文件
               </button>
               <span class="upload-hint">支持图片、文档、音视频等，单个文件最大 50MB</span>
             </div>
-            <div v-if="uploading" class="upload-progress">
+            <div
+              v-if="uploading"
+              class="upload-progress"
+            >
               上传中... {{ uploadProgress }}
             </div>
           </div>
         </div>
 
-        <div v-if="error" class="error-message">{{ error }}</div>
+        <div
+          v-if="error"
+          class="error-message"
+        >
+          {{ error }}
+        </div>
       </form>
     </div>
   </div>

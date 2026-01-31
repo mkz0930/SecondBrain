@@ -1,20 +1,57 @@
 <template>
   <div class="detail-view">
     <div class="header">
-      <button class="btn-default back-btn" @click="goBack">
+      <button
+        class="btn-default back-btn"
+        @click="goBack"
+      >
         <span class="icon">←</span> 返回首页
       </button>
       <div class="actions">
-        <button class="btn-default" @click="goBack">返回</button>
-        <button class="btn-primary" @click="goToEdit">编辑</button>
-        <button class="btn-danger" @click="handleDelete">删除</button>
+        <button
+          class="btn-default"
+          @click="goBack"
+        >
+          返回
+        </button>
+        <button
+          class="btn-secondary"
+          :disabled="reanalyzing"
+          @click="handleReanalyze"
+        >
+          {{ reanalyzing ? '分析中...' : '🔄 重新分析' }}
+        </button>
+        <button
+          class="btn-primary"
+          @click="goToEdit"
+        >
+          编辑
+        </button>
+        <button
+          class="btn-danger"
+          @click="handleDelete"
+        >
+          删除
+        </button>
       </div>
     </div>
 
-    <div v-if="loading" class="loading">加载中...</div>
-    <div v-else-if="error" class="error">{{ error }}</div>
-    <div v-else-if="content" class="content-container">
-      
+    <div
+      v-if="loading"
+      class="loading"
+    >
+      加载中...
+    </div>
+    <div
+      v-else-if="error"
+      class="error"
+    >
+      {{ error }}
+    </div>
+    <div
+      v-else-if="content"
+      class="content-container"
+    >
       <!-- 顶部标题区域 -->
       <div class="content-header-section">
         <div class="title-row">
@@ -22,15 +59,19 @@
           <button 
             class="favorite-btn"
             :class="{ active: content.is_favorite }"
+            title="收藏"
             @click="toggleFavorite"
-            title="收藏">
+          >
             {{ content.is_favorite ? '★' : '☆' }}
           </button>
         </div>
 
         <div class="meta-row">
           <span class="type-badge">{{ getTypeName(content.type) }}</span>
-          <span class="rating" v-if="content.smart_rating !== null && content.smart_rating !== undefined">
+          <span
+            v-if="content.smart_rating !== null && content.smart_rating !== undefined"
+            class="rating"
+          >
             {{ '★'.repeat(content.smart_rating) }}{{ '☆'.repeat(5 - content.smart_rating) }}
           </span>
           <span class="meta-separator">•</span>
@@ -44,17 +85,28 @@
       <div class="content-grid">
         <!-- 左侧信息栏 -->
         <aside class="info-panel">
-
           <!-- 封面图 -->
-          <div class="info-card image-card" v-if="coverImage">
-            <img :src="coverImage" alt="Cover" class="cover-image" />
+          <div
+            v-if="coverImage"
+            class="info-card image-card"
+          >
+            <img
+              :src="coverImage"
+              alt="Cover"
+              class="cover-image"
+            >
           </div>
 
           <!-- 详细信息 -->
           <div class="info-card">
-            <div class="card-title">详细信息</div>
+            <div class="card-title">
+              详细信息
+            </div>
             <div class="meta-list">
-              <div class="meta-item" v-if="manualRating > 0">
+              <div
+                v-if="manualRating > 0"
+                class="meta-item"
+              >
                 <span class="label">我的评分:</span>
                 <span class="value rating-stars">{{ '★'.repeat(manualRating) }}{{ '☆'.repeat(5 - manualRating) }}</span>
               </div>
@@ -72,22 +124,33 @@
 
           
           <!-- AI 摘要 -->
-          <div class="info-card summary-card" v-if="content.summary">
+          <div
+            v-if="content.summary"
+            class="info-card summary-card"
+          >
             <div class="card-title">
               <span class="icon">✦</span> AI 智能摘要
             </div>
-            <div class="summary-text">{{ content.summary }}</div>
+            <div class="summary-text">
+              {{ content.summary }}
+            </div>
           </div>
 
           <!-- 标签 -->
-          <div class="info-card" v-if="content.tags && content.tags.length > 0">
-            <div class="card-title">标签</div>
+          <div
+            v-if="content.tags && content.tags.length > 0"
+            class="info-card"
+          >
+            <div class="card-title">
+              标签
+            </div>
             <div class="tags-list">
               <span 
                 v-for="tag in content.tags" 
                 :key="tag.id"
                 class="tag"
-                :style="{ backgroundColor: tag.color || '#e4e7ed', color: '#1a1d24' }">
+                :style="{ backgroundColor: tag.color || '#e4e7ed', color: '#1a1d24' }"
+              >
                 {{ tag.name }}
               </span>
             </div>
@@ -95,112 +158,161 @@
 
           <!-- 来源信息 -->
           <div class="info-card">
-            <div class="card-title">来源信息</div>
-            <div class="sidebar-source-list" v-if="content.url || content.source">
-              <div v-if="content.source" class="sidebar-source-item">
-                 <div class="source-label">来源:</div>
-                 <div class="source-value">{{ content.source }}</div>
-               </div>
-               <div v-if="content.url" class="sidebar-source-item">
-                 <div class="source-label">链接:</div>
-                 <a :href="content.url" target="_blank" class="sidebar-url-link">
-                   <span class="link-icon">🔗</span>
-                   <span class="link-text">{{ content.url }}</span>
-                 </a>
-               </div>
+            <div class="card-title">
+              来源信息
             </div>
-            <div v-else class="empty-url-state">
+            <div
+              v-if="content.url || content.source"
+              class="sidebar-source-list"
+            >
+              <div
+                v-if="content.source"
+                class="sidebar-source-item"
+              >
+                <div class="source-label">
+                  来源:
+                </div>
+                <div class="source-value">
+                  {{ content.source }}
+                </div>
+              </div>
+              <div
+                v-if="content.url"
+                class="sidebar-source-item"
+              >
+                <div class="source-label">
+                  链接:
+                </div>
+                <a
+                  :href="content.url"
+                  target="_blank"
+                  class="sidebar-url-link"
+                >
+                  <span class="link-icon">🔗</span>
+                  <span class="link-text">{{ content.url }}</span>
+                </a>
+              </div>
+            </div>
+            <div
+              v-else
+              class="empty-url-state"
+            >
               暂无来源信息
             </div>
           </div>
 
           <!-- 附件列表 -->
-          <div class="info-card" v-if="feishuAttachments.length > 0">
-            <div class="card-title">附件 ({{ feishuAttachments.length }})</div>
+          <div
+            v-if="feishuAttachments.length > 0"
+            class="info-card"
+          >
+            <div class="card-title">
+              附件 ({{ feishuAttachments.length }})
+            </div>
             <div class="sidebar-attachments-list">
-              <div v-for="(item, index) in feishuAttachments" :key="index" class="sidebar-attachment-item">
-                <a :href="getAttachmentUrl(item)" target="_blank" class="sidebar-attachment-link" :title="item.name">
+              <div
+                v-for="(item, index) in feishuAttachments"
+                :key="index"
+                class="sidebar-attachment-item"
+              >
+                <a
+                  :href="getAttachmentUrl(item)"
+                  target="_blank"
+                  class="sidebar-attachment-link"
+                  :title="item.name"
+                >
                   <span class="attachment-icon">{{ getAttachmentIcon(item) }}</span>
                   <span class="attachment-name">{{ item.name }}</span>
                 </a>
-                <div v-if="isImageAttachment(item)" class="sidebar-attachment-preview">
-                  <img :src="getAttachmentUrl(item)" :alt="item.name" loading="lazy" />
+                <div
+                  v-if="isImageAttachment(item)"
+                  class="sidebar-attachment-preview"
+                  @click="openPreview(getAttachmentUrl(item), item.name)"
+                >
+                  <img
+                    :src="getAttachmentUrl(item)"
+                    :alt="item.name"
+                    loading="lazy"
+                  >
                 </div>
               </div>
             </div>
           </div>
-
         </aside>
 
         <!-- 右侧正文区域 -->
         <main class="main-body-panel">
           <!-- Markdown 渲染内容 -->
-          <div class="content-body" v-html="renderedContent"></div>
+          <div
+            class="content-body"
+            v-html="renderedContent"
+          />
 
           <div class="content-footer">
-            <button class="btn-default back-to-home-btn" @click="goBack">← 返回首页</button>
+            <button
+              class="btn-default back-to-home-btn"
+              @click="goBack"
+            >
+              ← 返回首页
+            </button>
             <span>最后更新：{{ formatDateTime(content.updated_at) }}</span>
           </div>
 
-          <!-- 正文内容 (元数据) -->
-          <div class="detail-section">
-            <h3>来源信息</h3>
-            <div class="source-list" v-if="content.url || content.source">
-              <div v-if="content.source" class="source-item">
-                <span class="label">来源:</span>
-                <span class="value">{{ content.source }}</span>
-              </div>
-              <div v-if="content.url" class="source-item">
-                <span class="label">链接:</span>
-                <a :href="content.url" target="_blank" rel="noopener noreferrer" class="link">
-                  访问链接 ↗
-                </a>
-              </div>
-            </div>
-            <div v-else class="empty-state">
-              暂无来源信息
-            </div>
-          </div>
-
-          <!-- 附件列表 -->
-          <div class="detail-section">
-            <h3>附件 ({{ attachments.length }})</h3>
-            <div class="attachments-list" v-if="attachments.length > 0">
-              <div v-for="(item, index) in attachments" :key="index" class="attachment-item">
-                <a :href="item.url" target="_blank" class="attachment-link" :title="item.url">
-                  <span class="attachment-icon">{{ item.type === 'image' ? '🖼️' : '📎' }}</span>
-                  <span class="attachment-name">{{ item.name }}</span>
-                </a>
-                <div v-if="item.type === 'image'" class="attachment-preview-box">
-                  <img :src="item.url" loading="lazy" />
-                </div>
-              </div>
-            </div>
-            <div v-else class="empty-state">
-              暂无附件
-            </div>
-          </div>
-
-          <div class="annotations-section" v-if="content.annotations && content.annotations.length > 0">
+          <div
+            v-if="content.annotations && content.annotations.length > 0"
+            class="annotations-section"
+          >
             <h3>批注</h3>
             <div 
               v-for="annotation in content.annotations" 
               :key="annotation.id"
-              class="annotation-item">
-              <div class="annotation-content">{{ annotation.note }}</div>
-              <div class="annotation-time">{{ formatDateTime(annotation.created_at) }}</div>
+              class="annotation-item"
+            >
+              <div class="annotation-content">
+                {{ annotation.note }}
+              </div>
+              <div class="annotation-time">
+                {{ formatDateTime(annotation.created_at) }}
+              </div>
             </div>
           </div>
         </main>
       </div>
-
     </div>
 
     <!-- Floating back button at bottom right -->
-    <button class="floating-back-btn" @click="goBack" title="返回首页">
+    <button
+      class="floating-back-btn"
+      title="返回首页"
+      @click="goBack"
+    >
       <span class="icon">←</span>
       <span class="text">返回首页</span>
     </button>
+
+    <!-- 图片预览弹窗 -->
+    <div
+      v-if="previewImage"
+      class="image-preview-overlay"
+      @click="closePreview"
+    >
+      <div class="image-preview-container">
+        <img
+          :src="previewImage"
+          :alt="previewImageName"
+          @click.stop
+        >
+        <button
+          class="preview-close-btn"
+          @click="closePreview"
+        >
+          ×
+        </button>
+        <div class="preview-image-name">
+          {{ previewImageName }}
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -221,6 +333,23 @@ const md = new MarkdownIt({
 const router = useRouter()
 const route = useRoute()
 const contentStore = useContentStore()
+
+// 图片预览状态
+const previewImage = ref(null)
+const previewImageName = ref('')
+
+// 重新分析状态
+const reanalyzing = ref(false)
+
+function openPreview(url, name = '图片') {
+  previewImage.value = url
+  previewImageName.value = name
+}
+
+function closePreview() {
+  previewImage.value = null
+  previewImageName.value = ''
+}
 
 const content = computed(() => contentStore.currentContent)
 const loading = computed(() => contentStore.loading)
@@ -395,6 +524,27 @@ async function toggleFavorite() {
     await contentStore.toggleFavorite(route.params.id)
   } catch (err) {
     alert('切换收藏失败')
+  }
+}
+
+async function handleReanalyze() {
+  if (reanalyzing.value) return
+
+  reanalyzing.value = true
+  try {
+    const result = await contentStore.reanalyzeContent(route.params.id)
+    if (result && result.success) {
+      // 重新获取内容以显示更新后的数据
+      await contentStore.fetchContent(route.params.id)
+      alert(`分析完成！${result.data?.isImageAnalysis ? '（图片内容已识别）' : ''}`)
+    } else {
+      alert('分析失败，请稍后重试')
+    }
+  } catch (err) {
+    console.error('Reanalyze error:', err)
+    alert('分析失败: ' + (err.message || '未知错误'))
+  } finally {
+    reanalyzing.value = false
   }
 }
 
@@ -1097,6 +1247,13 @@ function getTypeName(type) {
   border: 1px solid var(--border-color);
   background: var(--bg-body);
   max-height: 200px;
+  cursor: pointer;
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.sidebar-attachment-preview:hover {
+  transform: scale(1.02);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
 }
 
 .sidebar-attachment-preview img {
@@ -1105,6 +1262,71 @@ function getTypeName(type) {
   height: auto;
   max-height: 200px;
   object-fit: cover;
+}
+
+/* 图片预览弹窗 */
+.image-preview-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.9);
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: zoom-out;
+}
+
+.image-preview-container {
+  position: relative;
+  max-width: 90vw;
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.image-preview-container img {
+  max-width: 90vw;
+  max-height: 85vh;
+  object-fit: contain;
+  border-radius: 4px;
+  cursor: default;
+}
+
+.preview-close-btn {
+  position: absolute;
+  top: -40px;
+  right: -40px;
+  width: 36px;
+  height: 36px;
+  border: none;
+  background: rgba(255, 255, 255, 0.1);
+  color: white;
+  font-size: 24px;
+  border-radius: 50%;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.2s;
+}
+
+.preview-close-btn:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.preview-image-name {
+  margin-top: 12px;
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 14px;
+  text-align: center;
+  max-width: 80vw;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 </style>

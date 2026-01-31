@@ -3,28 +3,57 @@
     <div class="header">
       <h1>外挂大脑</h1>
       <div class="header-actions">
-          <input
-            v-model="searchKeyword"
-            type="text"
-            placeholder="搜索内容..."
-            @keyup="handleKeyup"
-            class="search-input"
-          />
+        <input
+          v-model="searchKeyword"
+          type="text"
+          placeholder="搜索内容..."
+          class="search-input"
+          @keyup="handleKeyup"
+        >
 
-          <button
-            class="btn-secondary sync-btn"
-            @click="handleSync"
-            :disabled="isSyncing"
-            title="同步飞书数据">
-            <span v-if="isSyncing" class="spinner"></span>
-            {{ isSyncing ? '同步中...' : '同步飞书' }}
-          </button>
-          <button class="btn-secondary" @click="goToResearch">🔬 研究助手</button>
-          <button class="btn-secondary" @click="goToGraph">🕸️ 知识图谱</button>
-          <button class="btn-secondary" @click="goToDatabase">📊 数据库</button>
-          <button class="btn-primary" @click="goToNew">+ 新建内容</button>
-          <button class="btn-secondary" @click="handleLogout">登出</button>
-        </div>
+        <button
+          class="btn-secondary sync-btn"
+          :disabled="isSyncing"
+          title="同步飞书数据"
+          @click="handleSync"
+        >
+          <span
+            v-if="isSyncing"
+            class="spinner"
+          />
+          {{ isSyncing ? '同步中...' : '同步飞书' }}
+        </button>
+        <button
+          class="btn-secondary"
+          @click="goToResearch"
+        >
+          🔬 研究助手
+        </button>
+        <button
+          class="btn-secondary"
+          @click="goToGraph"
+        >
+          🕸️ 知识图谱
+        </button>
+        <button
+          class="btn-secondary"
+          @click="goToDatabase"
+        >
+          📊 数据库
+        </button>
+        <button
+          class="btn-primary"
+          @click="goToNew"
+        >
+          + 新建内容
+        </button>
+        <button
+          class="btn-secondary"
+          @click="handleLogout"
+        >
+          登出
+        </button>
+      </div>
     </div>
 
     <!-- Sync Progress Modal -->
@@ -41,30 +70,47 @@
             <div class="filter-card">
               <h3>分类</h3>
               <div class="filter-content">
-                <div class="filter-item" 
-                     :class="{ active: filters.type === '' }" 
-                     @click="filterByType('')">
+                <div
+                  class="filter-item" 
+                  :class="{ active: filters.type === '' }" 
+                  @click="filterByType('')"
+                >
                   全部
                 </div>
-                <div class="filter-item" 
-                     :class="{ active: filters.type === 'note' }" 
-                     @click="filterByType('note')">
+                <div
+                  class="filter-item" 
+                  :class="{ active: filters.type === 'note' }" 
+                  @click="filterByType('note')"
+                >
                   随笔
                 </div>
-                <div class="filter-item" 
-                     :class="{ active: filters.type === 'article' }" 
-                     @click="filterByType('article')">
+                <div
+                  class="filter-item" 
+                  :class="{ active: filters.type === 'article' }" 
+                  @click="filterByType('article')"
+                >
                   文章
                 </div>
-                <div class="filter-item" 
-                     :class="{ active: filters.type === 'media' }" 
-                     @click="filterByType('media')">
+                <div
+                  class="filter-item" 
+                  :class="{ active: filters.type === 'media' }" 
+                  @click="filterByType('media')"
+                >
                   音视频
                 </div>
-                <div class="filter-item" 
-                     :class="{ active: filters.type === 'book' }" 
-                     @click="filterByType('book')">
+                <div
+                  class="filter-item"
+                  :class="{ active: filters.type === 'book' }"
+                  @click="filterByType('book')"
+                >
                   书籍
+                </div>
+                <div
+                  class="filter-item"
+                  :class="{ active: filters.type === 'bilibili' }"
+                  @click="filterByType('bilibili')"
+                >
+                  B站
                 </div>
               </div>
             </div>
@@ -72,27 +118,36 @@
             <div class="filter-card">
               <h3>收藏</h3>
               <div class="filter-content">
-                <div class="filter-item" 
-                     :class="{ active: filters.is_favorite === null }" 
-                     @click="filterByFavorite(null)">
+                <div
+                  class="filter-item" 
+                  :class="{ active: filters.is_favorite === null }" 
+                  @click="filterByFavorite(null)"
+                >
                   全部
                 </div>
-                <div class="filter-item" 
-                     :class="{ active: filters.is_favorite === true }" 
-                     @click="filterByFavorite(true)">
+                <div
+                  class="filter-item" 
+                  :class="{ active: filters.is_favorite === true }" 
+                  @click="filterByFavorite(true)"
+                >
                   已收藏
                 </div>
               </div>
             </div>
           </div>
 
-          <div class="sidebar-col-right" v-if="tagStore.tags.length > 0">
+          <div
+            v-if="tagStore.tags.length > 0"
+            class="sidebar-col-right"
+          >
             <div class="filter-card h-full">
               <h3>标签</h3>
               <div class="filter-content tags-content">
-                <div class="filter-item tag-item" 
-                     :class="{ active: !filters.tag }" 
-                     @click="filterByTag('')">
+                <div
+                  class="filter-item tag-item" 
+                  :class="{ active: !filters.tag }" 
+                  @click="filterByTag('')"
+                >
                   全部
                 </div>
                 <div 
@@ -100,14 +155,17 @@
                   :key="tag.id"
                   class="filter-item tag-item" 
                   :class="{ active: filters.tag === tag.name }" 
-                  @click="filterByTag(tag.name)">
+                  @click="filterByTag(tag.name)"
+                >
                   {{ tag.name }} <span class="tag-count">{{ tag.count }}</span>
                 </div>
               </div>
 
-              <div v-if="hasMoreTags" 
-                   class="filter-more-btn" 
-                   @click="showAllTags = !showAllTags">
+              <div
+                v-if="hasMoreTags" 
+                class="filter-more-btn" 
+                @click="showAllTags = !showAllTags"
+              >
                 {{ showAllTags ? '收起' : '更多标签...' }}
               </div>
             </div>
@@ -116,20 +174,47 @@
       </aside>
 
       <main class="content-area">
-        <div v-if="loading" class="loading">加载中...</div>
-        <div v-else-if="error" class="error">{{ error }}</div>
-        <div v-else-if="contents.length === 0" class="empty">暂无内容</div>
-        <div v-else class="timeline-view">
-          <div v-for="group in groupedContents" :key="group.date" class="timeline-group">
+        <div
+          v-if="loading"
+          class="loading"
+        >
+          加载中...
+        </div>
+        <div
+          v-else-if="error"
+          class="error"
+        >
+          {{ error }}
+        </div>
+        <div
+          v-else-if="contents.length === 0"
+          class="empty"
+        >
+          暂无内容
+        </div>
+        <div
+          v-else
+          class="timeline-view"
+        >
+          <div
+            v-for="group in groupedContents"
+            :key="group.date"
+            class="timeline-group"
+          >
             <div class="timeline-header">
               <span class="timeline-date">{{ group.displayDate }}</span>
               <span class="timeline-count">{{ group.count }}条记录</span>
             </div>
             
-            <div v-if="dailySummaries[group.date]" class="daily-summary-banner">
-              <div class="summary-icon">📝</div>
+            <div
+              v-if="dailySummaries[group.date]"
+              class="daily-summary-banner"
+            >
+              <div class="summary-icon">
+                📝
+              </div>
               <div class="summary-content">
-                <strong>今日总结：</strong>{{ dailySummaries[group.date] }}
+                <strong>今日总结：</strong>{{ formatSummary(dailySummaries[group.date]) }}
               </div>
             </div>
 
@@ -137,47 +222,74 @@
               <div 
                 v-for="content in group.items" 
                 :key="content.id"
-                class="timeline-item">
-                <div class="timeline-marker"></div>
-                <div class="content-card" @click="goToDetail(content.id)">
+                class="timeline-item"
+              >
+                <div class="timeline-marker" />
+                <div
+                  class="content-card"
+                  @click="goToDetail(content.id)"
+                >
                   <div class="card-header">
                     <h3>{{ content.title }}</h3>
                     <button 
                       class="favorite-btn"
                       :class="{ active: content.is_favorite }"
-                      @click.stop="toggleFavorite(content.id)">
+                      @click.stop="toggleFavorite(content.id)"
+                    >
                       {{ content.is_favorite ? '★' : '☆' }}
                     </button>
                   </div>
                   <div class="card-meta">
                     <span class="type-badge">{{ getTypeName(content.type) }}</span>
-                    <span class="rating" v-if="getRating(content) > 0">
+                    <span
+                      v-if="getRating(content) > 0"
+                      class="rating"
+                    >
                       {{ '★'.repeat(getRating(content)) }}{{ '☆'.repeat(5 - getRating(content)) }}
                     </span>
                     <span class="visit-count">访问 {{ content.access_count || 0 }} 次</span>
                   </div>
                   <div class="card-content">
-                    <div v-if="content.summary" class="content-summary">
+                    <div
+                      v-if="content.summary"
+                      class="content-summary"
+                    >
                       {{ content.summary }}
                     </div>
-                    <div class="content-text">{{ truncate(content.content) }}</div>
-                    <div v-if="content.source" class="content-source">
+                    <div class="content-text">
+                      {{ truncate(content.content) }}
+                    </div>
+                    <div
+                      v-if="content.source"
+                      class="content-source"
+                    >
                       <span class="source-label">URL:</span> {{ content.source }}
                     </div>
                   </div>
-                  <div class="card-tags" v-if="content.tags && content.tags.length > 0">
+                  <div
+                    v-if="content.tags && content.tags.length > 0"
+                    class="card-tags"
+                  >
                     <span 
                       v-for="tag in content.tags" 
                       :key="tag.id"
                       class="tag"
-                      :style="{ backgroundColor: tag.color || '#e4e7ed', color: '#1a1d24' }">
+                      :style="{ backgroundColor: tag.color || '#e4e7ed', color: '#1a1d24' }"
+                    >
                       {{ tag.name }}
                     </span>
                   </div>
                   <div class="card-footer">
                     <div class="time-info">
-                      <div class="time-item">创建时间: {{ formatDateTime(content.created_at) }}</div>
-                      <div v-if="content.updated_at" class="time-item update-time">更新时间: {{ formatDateTime(content.updated_at) }}</div>
+                      <div class="time-item">
+                        创建时间: {{ formatDateTime(content.created_at) }}
+                      </div>
+                      <div
+                        v-if="content.updated_at"
+                        class="time-item update-time"
+                      >
+                        更新时间: {{ formatDateTime(content.updated_at) }}
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -186,15 +298,22 @@
           </div>
         </div>
 
-        <div v-if="hasMore" class="load-more-container">
+        <div
+          v-if="hasMore"
+          class="load-more-container"
+        >
           <button 
             class="btn-load-more"
+            :disabled="loading"
             @click="handleLoadMore"
-            :disabled="loading">
+          >
             {{ loading ? '加载中...' : '加载更多' }}
           </button>
         </div>
-        <div v-else-if="contents.length > 0" class="no-more">
+        <div
+          v-else-if="contents.length > 0"
+          class="no-more"
+        >
           没有更多内容了
         </div>
       </main>
@@ -211,6 +330,15 @@ import { useUserStore } from '../stores/user'
 import { formatDate, truncateText, getContentTypeName, formatDateTime } from '../utils/helpers'
 import api from '../utils/api'
 import SyncProgressModal from '../components/SyncProgressModal.vue'
+
+// 格式化每日总结，将 "1. xxx 2. xxx" 格式转换为换行显示
+const formatSummary = (summary) => {
+  if (!summary) return ''
+  // 如果已经有换行符，直接返回
+  if (summary.includes('\n')) return summary
+  // 将 "2. " "3. " 等前面添加换行符（保留 "1. " 在开头）
+  return summary.replace(/\s+(\d+)\.\s+/g, '\n$1. ')
+}
 
 const router = useRouter()
 const contentStore = useContentStore()
@@ -286,7 +414,7 @@ async function fetchDailySummary(date) {
     if (res.data && res.data.summary) {
       dailySummaries.value[date] = res.data.summary
     } else {
-       dailySummaries.value[date] = null // Mark as fetched but empty
+      dailySummaries.value[date] = null // Mark as fetched but empty
     }
   } catch (e) {
     console.error('Failed to fetch summary for', date, e)
@@ -829,9 +957,16 @@ async function handleSync() {
   flex-shrink: 0;
 }
 
+.summary-content {
+  flex: 1;
+  white-space: pre-line;
+  line-height: 1.8;
+}
+
 .summary-content strong {
+  display: block;
   color: #10b981;
-  margin-right: 8px;
+  margin-bottom: 8px;
 }
 
 .timeline-items {

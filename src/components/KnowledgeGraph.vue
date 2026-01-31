@@ -1,7 +1,13 @@
 <template>
   <div class="knowledge-graph">
-    <div class="graph-container" ref="graphContainer">
-      <svg ref="svgElement" class="graph-svg">
+    <div
+      ref="graphContainer"
+      class="graph-container"
+    >
+      <svg
+        ref="svgElement"
+        class="graph-svg"
+      >
         <defs>
           <marker
             id="arrowhead"
@@ -9,8 +15,12 @@
             markerHeight="10"
             refX="9"
             refY="3"
-            orient="auto">
-            <polygon points="0 0, 10 3, 0 6" fill="#64748b" />
+            orient="auto"
+          >
+            <polygon
+              points="0 0, 10 3, 0 6"
+              fill="#64748b"
+            />
           </marker>
         </defs>
         <g class="links-group">
@@ -34,7 +44,8 @@
             class="node"
             @mousedown="startDrag(node, $event)"
             @mouseenter="hoveredNode = node"
-            @mouseleave="hoveredNode = null">
+            @mouseleave="hoveredNode = null"
+          >
             <circle
               :r="getNodeRadius(node)"
               :class="['node-circle', `node-${node.type}`]"
@@ -43,7 +54,8 @@
             <text
               class="node-label"
               text-anchor="middle"
-              dy="0.3em">
+              dy="0.3em"
+            >
               {{ truncateLabel(node.label) }}
             </text>
           </g>
@@ -54,12 +66,16 @@
       <div
         v-if="hoveredNode"
         class="node-info-panel"
-        :style="{ left: hoveredNode.x + 'px', top: (hoveredNode.y - 80) + 'px' }">
+        :style="{ left: hoveredNode.x + 'px', top: (hoveredNode.y - 80) + 'px' }"
+      >
         <h4>{{ hoveredNode.label }}</h4>
         <div class="info-item">
           <strong>类型：</strong>{{ getTypeName(hoveredNode.type) }}
         </div>
-        <div class="info-item" v-if="hoveredNode.relevance">
+        <div
+          v-if="hoveredNode.relevance"
+          class="info-item"
+        >
           <strong>相关度：</strong>{{ (hoveredNode.relevance * 100).toFixed(0) }}%
         </div>
         <div class="info-content">
@@ -69,36 +85,54 @@
     </div>
 
     <div class="graph-controls">
-      <button class="control-btn" @click="resetView" title="重置视图">
+      <button
+        class="control-btn"
+        title="重置视图"
+        @click="resetView"
+      >
         🔄
       </button>
-      <button class="control-btn" @click="zoomIn" title="放大">
+      <button
+        class="control-btn"
+        title="放大"
+        @click="zoomIn"
+      >
         ➕
       </button>
-      <button class="control-btn" @click="zoomOut" title="缩小">
+      <button
+        class="control-btn"
+        title="缩小"
+        @click="zoomOut"
+      >
         ➖
       </button>
     </div>
 
     <div class="graph-legend">
       <div class="legend-item">
-        <span class="legend-color" style="background: #3b82f6;"></span>
+        <span
+          class="legend-color"
+          style="background: #3b82f6;"
+        />
         <span>本地内容</span>
       </div>
       <div class="legend-item">
-        <span class="legend-color" style="background: #8b5cf6;"></span>
+        <span
+          class="legend-color"
+          style="background: #8b5cf6;"
+        />
         <span>网络资源</span>
       </div>
       <div class="legend-item">
-        <span class="legend-line similarity"></span>
+        <span class="legend-line similarity" />
         <span>相似关系</span>
       </div>
       <div class="legend-item">
-        <span class="legend-line reference"></span>
+        <span class="legend-line reference" />
         <span>引用关系</span>
       </div>
       <div class="legend-item">
-        <span class="legend-line complement"></span>
+        <span class="legend-line complement" />
         <span>互补关系</span>
       </div>
     </div>

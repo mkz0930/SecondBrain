@@ -3,69 +3,133 @@
     <div class="header">
       <h1>📊 数据库看板</h1>
       <div class="header-actions">
-        <button class="btn-secondary" @click="refreshData">🔄 刷新</button>
-        <button class="btn-secondary" @click="goBack">← 返回</button>
+        <button
+          class="btn-secondary"
+          @click="refreshData"
+        >
+          🔄 刷新
+        </button>
+        <button
+          class="btn-secondary"
+          @click="goBack"
+        >
+          ← 返回
+        </button>
       </div>
     </div>
 
     <div class="dashboard-content">
       <!-- Loading State -->
-      <div v-if="loading" class="loading-state">
-        <div class="spinner-large"></div>
+      <div
+        v-if="loading"
+        class="loading-state"
+      >
+        <div class="spinner-large" />
         <p>加载数据中...</p>
       </div>
 
       <!-- Error State -->
-      <div v-else-if="error" class="error-state">
+      <div
+        v-else-if="error"
+        class="error-state"
+      >
         <p>❌ {{ error }}</p>
-        <button class="btn-primary" @click="refreshData">重试</button>
+        <button
+          class="btn-primary"
+          @click="refreshData"
+        >
+          重试
+        </button>
       </div>
 
       <!-- Dashboard Content -->
-      <div v-else class="dashboard-grid">
+      <div
+        v-else
+        class="dashboard-grid"
+      >
         <!-- Database Overview -->
         <div class="card overview-card">
           <h2>📦 数据库概览</h2>
           <div class="stats-grid">
             <div class="stat-item">
-              <div class="stat-label">内容总数</div>
-              <div class="stat-value">{{ overview.tables?.contents || 0 }}</div>
+              <div class="stat-label">
+                内容总数
+              </div>
+              <div class="stat-value">
+                {{ overview.tables?.contents || 0 }}
+              </div>
             </div>
             <div class="stat-item">
-              <div class="stat-label">已删除内容</div>
-              <div class="stat-value deleted">{{ overview.tables?.deleted_contents || 0 }}</div>
+              <div class="stat-label">
+                已删除内容
+              </div>
+              <div class="stat-value deleted">
+                {{ overview.tables?.deleted_contents || 0 }}
+              </div>
             </div>
             <div class="stat-item">
-              <div class="stat-label">标签数</div>
-              <div class="stat-value">{{ overview.tables?.tags || 0 }}</div>
+              <div class="stat-label">
+                标签数
+              </div>
+              <div class="stat-value">
+                {{ overview.tables?.tags || 0 }}
+              </div>
             </div>
             <div class="stat-item">
-              <div class="stat-label">标签关联</div>
-              <div class="stat-value">{{ overview.tables?.content_tags || 0 }}</div>
+              <div class="stat-label">
+                标签关联
+              </div>
+              <div class="stat-value">
+                {{ overview.tables?.content_tags || 0 }}
+              </div>
             </div>
             <div class="stat-item">
-              <div class="stat-label">注释数</div>
-              <div class="stat-value">{{ overview.tables?.annotations || 0 }}</div>
+              <div class="stat-label">
+                注释数
+              </div>
+              <div class="stat-value">
+                {{ overview.tables?.annotations || 0 }}
+              </div>
             </div>
             <div class="stat-item">
-              <div class="stat-label">访问记录</div>
-              <div class="stat-value">{{ overview.tables?.access_logs || 0 }}</div>
+              <div class="stat-label">
+                访问记录
+              </div>
+              <div class="stat-value">
+                {{ overview.tables?.access_logs || 0 }}
+              </div>
             </div>
             <div class="stat-item">
-              <div class="stat-label">同步映射</div>
-              <div class="stat-value">{{ overview.tables?.feishu_sync_mapping || 0 }}</div>
+              <div class="stat-label">
+                同步映射
+              </div>
+              <div class="stat-value">
+                {{ overview.tables?.feishu_sync_mapping || 0 }}
+              </div>
             </div>
             <div class="stat-item">
-              <div class="stat-label">同步日志</div>
-              <div class="stat-value">{{ overview.tables?.feishu_sync_log || 0 }}</div>
+              <div class="stat-label">
+                同步日志
+              </div>
+              <div class="stat-value">
+                {{ overview.tables?.feishu_sync_log || 0 }}
+              </div>
             </div>
             <div class="stat-item">
-              <div class="stat-label">每日总结</div>
-              <div class="stat-value">{{ overview.tables?.daily_summaries || 0 }}</div>
+              <div class="stat-label">
+                每日总结
+              </div>
+              <div class="stat-value">
+                {{ overview.tables?.daily_summaries || 0 }}
+              </div>
             </div>
             <div class="stat-item">
-              <div class="stat-label">研究项目</div>
-              <div class="stat-value">{{ overview.tables?.research_projects || 0 }}</div>
+              <div class="stat-label">
+                研究项目
+              </div>
+              <div class="stat-value">
+                {{ overview.tables?.research_projects || 0 }}
+              </div>
             </div>
           </div>
         </div>
@@ -73,18 +137,30 @@
         <!-- Sync Statistics -->
         <div class="card sync-card">
           <h2>🔄 同步统计</h2>
-          <div class="sync-config" v-if="syncStats.config">
+          <div
+            v-if="syncStats.config"
+            class="sync-config"
+          >
             <div class="config-item">
               <span class="config-label">同步状态:</span>
-              <span class="config-value" :class="{ enabled: syncStats.config.enabled }">
+              <span
+                class="config-value"
+                :class="{ enabled: syncStats.config.enabled }"
+              >
                 {{ syncStats.config.enabled ? '✓ 已启用' : '✕ 已禁用' }}
               </span>
             </div>
-            <div class="config-item" v-if="syncStats.config.last_sync_at">
+            <div
+              v-if="syncStats.config.last_sync_at"
+              class="config-item"
+            >
               <span class="config-label">最后同步:</span>
               <span class="config-value">{{ formatDate(syncStats.config.last_sync_at) }}</span>
             </div>
-            <div class="config-item" v-if="syncStats.config.consecutive_failures > 0">
+            <div
+              v-if="syncStats.config.consecutive_failures > 0"
+              class="config-item"
+            >
               <span class="config-label">连续失败:</span>
               <span class="config-value error">{{ syncStats.config.consecutive_failures }} 次</span>
             </div>
@@ -92,46 +168,84 @@
 
           <div class="sync-stats-grid">
             <div class="stat-item">
-              <div class="stat-label">总同步次数</div>
-              <div class="stat-value">{{ syncStats.statistics?.total_syncs || 0 }}</div>
+              <div class="stat-label">
+                总同步次数
+              </div>
+              <div class="stat-value">
+                {{ syncStats.statistics?.total_syncs || 0 }}
+              </div>
             </div>
             <div class="stat-item">
-              <div class="stat-label">成功率</div>
-              <div class="stat-value success">{{ syncStats.statistics?.success_rate || 0 }}%</div>
+              <div class="stat-label">
+                成功率
+              </div>
+              <div class="stat-value success">
+                {{ syncStats.statistics?.success_rate || 0 }}%
+              </div>
             </div>
             <div class="stat-item">
-              <div class="stat-label">处理记录数</div>
-              <div class="stat-value">{{ syncStats.statistics?.total_records_processed || 0 }}</div>
+              <div class="stat-label">
+                处理记录数
+              </div>
+              <div class="stat-value">
+                {{ syncStats.statistics?.total_records_processed || 0 }}
+              </div>
             </div>
             <div class="stat-item">
-              <div class="stat-label">冲突解决</div>
-              <div class="stat-value">{{ syncStats.statistics?.total_conflicts || 0 }}</div>
+              <div class="stat-label">
+                冲突解决
+              </div>
+              <div class="stat-value">
+                {{ syncStats.statistics?.total_conflicts || 0 }}
+              </div>
             </div>
           </div>
 
-          <div class="sync-direction" v-if="Object.keys(syncStats.mapping_by_direction || {}).length > 0">
+          <div
+            v-if="Object.keys(syncStats.mapping_by_direction || {}).length > 0"
+            class="sync-direction"
+          >
             <h3>同步方向分布</h3>
             <div class="direction-list">
-              <div v-for="(count, direction) in syncStats.mapping_by_direction" :key="direction" class="direction-item">
+              <div
+                v-for="(count, direction) in syncStats.mapping_by_direction"
+                :key="direction"
+                class="direction-item"
+              >
                 <span class="direction-label">{{ formatDirection(direction) }}</span>
                 <span class="direction-count">{{ count }}</span>
               </div>
             </div>
           </div>
 
-          <div class="recent-syncs" v-if="syncStats.recent_syncs?.length > 0">
+          <div
+            v-if="syncStats.recent_syncs?.length > 0"
+            class="recent-syncs"
+          >
             <h3>最近同步记录</h3>
             <div class="sync-list">
-              <div v-for="sync in syncStats.recent_syncs.slice(0, 5)" :key="sync.id" class="sync-item">
+              <div
+                v-for="sync in syncStats.recent_syncs.slice(0, 5)"
+                :key="sync.id"
+                class="sync-item"
+              >
                 <div class="sync-header">
                   <span class="sync-type">{{ formatSyncType(sync.sync_type) }}</span>
-                  <span class="sync-status" :class="sync.status">{{ sync.status === 'success' ? '✓' : '✕' }}</span>
+                  <span
+                    class="sync-status"
+                    :class="sync.status"
+                  >{{ sync.status === 'success' ? '✓' : '✕' }}</span>
                 </div>
                 <div class="sync-details">
                   <span>{{ formatDateTime(sync.start_at) }}</span>
                   <span v-if="sync.total_count">{{ sync.success_count }}/{{ sync.total_count }} 成功</span>
                 </div>
-                <div v-if="sync.error_message" class="sync-error">{{ sync.error_message }}</div>
+                <div
+                  v-if="sync.error_message"
+                  class="sync-error"
+                >
+                  {{ sync.error_message }}
+                </div>
               </div>
             </div>
           </div>
@@ -144,23 +258,44 @@
           <div class="content-section">
             <h3>按类型分布</h3>
             <div class="chart-list">
-              <div v-for="item in contentStats.by_type" :key="item.type" class="chart-item">
-                <div class="chart-label">{{ item.type || '未分类' }}</div>
+              <div
+                v-for="item in contentStats.by_type"
+                :key="item.type"
+                class="chart-item"
+              >
+                <div class="chart-label">
+                  {{ item.type || '未分类' }}
+                </div>
                 <div class="chart-bar-container">
-                  <div class="chart-bar" :style="{ width: getPercentage(item.count, getTotalByType()) + '%' }"></div>
+                  <div
+                    class="chart-bar"
+                    :style="{ width: getPercentage(item.count, getTotalByType()) + '%' }"
+                  />
                   <span class="chart-value">{{ item.count }}</span>
                 </div>
               </div>
             </div>
           </div>
 
-          <div class="content-section" v-if="contentStats.by_source?.length > 0">
+          <div
+            v-if="contentStats.by_source?.length > 0"
+            class="content-section"
+          >
             <h3>按来源分布 (Top 10)</h3>
             <div class="chart-list">
-              <div v-for="item in contentStats.by_source" :key="item.source" class="chart-item">
-                <div class="chart-label">{{ item.source }}</div>
+              <div
+                v-for="item in contentStats.by_source"
+                :key="item.source"
+                class="chart-item"
+              >
+                <div class="chart-label">
+                  {{ item.source }}
+                </div>
                 <div class="chart-bar-container">
-                  <div class="chart-bar" :style="{ width: getPercentage(item.count, getTotalBySource()) + '%' }"></div>
+                  <div
+                    class="chart-bar"
+                    :style="{ width: getPercentage(item.count, getTotalBySource()) + '%' }"
+                  />
                   <span class="chart-value">{{ item.count }}</span>
                 </div>
               </div>
@@ -169,27 +304,50 @@
 
           <div class="content-stats-grid">
             <div class="stat-item">
-              <div class="stat-label">收藏总数</div>
-              <div class="stat-value">{{ contentStats.favorites?.total || 0 }}</div>
+              <div class="stat-label">
+                收藏总数
+              </div>
+              <div class="stat-value">
+                {{ contentStats.favorites?.total || 0 }}
+              </div>
             </div>
             <div class="stat-item">
-              <div class="stat-label">平均评分</div>
-              <div class="stat-value">{{ contentStats.favorites?.avg_rating || 0 }}</div>
+              <div class="stat-label">
+                平均评分
+              </div>
+              <div class="stat-value">
+                {{ contentStats.favorites?.avg_rating || 0 }}
+              </div>
             </div>
             <div class="stat-item">
-              <div class="stat-label">有摘要内容</div>
-              <div class="stat-value">{{ contentStats.summaries?.total || 0 }}</div>
+              <div class="stat-label">
+                有摘要内容
+              </div>
+              <div class="stat-value">
+                {{ contentStats.summaries?.total || 0 }}
+              </div>
             </div>
             <div class="stat-item">
-              <div class="stat-label">摘要覆盖率</div>
-              <div class="stat-value">{{ contentStats.summaries?.percentage || 0 }}%</div>
+              <div class="stat-label">
+                摘要覆盖率
+              </div>
+              <div class="stat-value">
+                {{ contentStats.summaries?.percentage || 0 }}%
+              </div>
             </div>
           </div>
 
-          <div class="content-section" v-if="contentStats.timeline?.length > 0">
+          <div
+            v-if="contentStats.timeline?.length > 0"
+            class="content-section"
+          >
             <h3>最近30天创建趋势</h3>
             <div class="timeline-list">
-              <div v-for="item in contentStats.timeline.slice(0, 10)" :key="item.date" class="timeline-item">
+              <div
+                v-for="item in contentStats.timeline.slice(0, 10)"
+                :key="item.date"
+                class="timeline-item"
+              >
                 <span class="timeline-date">{{ item.date }}</span>
                 <span class="timeline-count">{{ item.count }} 条</span>
               </div>
@@ -204,26 +362,50 @@
           <div class="tag-section">
             <h3>最常用标签 (Top 20)</h3>
             <div class="tag-list">
-              <div v-for="tag in tagStats.most_used?.slice(0, 20)" :key="tag.id" class="tag-item">
-                <span class="tag-badge" :style="{ backgroundColor: tag.color }">{{ tag.name }}</span>
+              <div
+                v-for="tag in tagStats.most_used?.slice(0, 20)"
+                :key="tag.id"
+                class="tag-item"
+              >
+                <span
+                  class="tag-badge"
+                  :style="{ backgroundColor: tag.color }"
+                >{{ tag.name }}</span>
                 <span class="tag-count">{{ tag.usage_count }} 次</span>
               </div>
             </div>
           </div>
 
-          <div class="tag-section" v-if="tagStats.unused?.length > 0">
+          <div
+            v-if="tagStats.unused?.length > 0"
+            class="tag-section"
+          >
             <h3>未使用标签 ({{ tagStats.unused.length }})</h3>
             <div class="tag-list">
-              <div v-for="tag in tagStats.unused.slice(0, 10)" :key="tag.id" class="tag-item unused">
-                <span class="tag-badge" :style="{ backgroundColor: tag.color }">{{ tag.name }}</span>
+              <div
+                v-for="tag in tagStats.unused.slice(0, 10)"
+                :key="tag.id"
+                class="tag-item unused"
+              >
+                <span
+                  class="tag-badge"
+                  :style="{ backgroundColor: tag.color }"
+                >{{ tag.name }}</span>
               </div>
             </div>
           </div>
 
-          <div class="tag-section" v-if="tagStats.distribution?.length > 0">
+          <div
+            v-if="tagStats.distribution?.length > 0"
+            class="tag-section"
+          >
             <h3>使用频率分布</h3>
             <div class="distribution-list">
-              <div v-for="item in tagStats.distribution" :key="item.range" class="distribution-item">
+              <div
+                v-for="item in tagStats.distribution"
+                :key="item.range"
+                class="distribution-item"
+              >
                 <span class="distribution-label">{{ item.range }} 次使用</span>
                 <span class="distribution-count">{{ item.tag_count }} 个标签</span>
               </div>
@@ -232,24 +414,42 @@
         </div>
 
         <!-- Research Statistics -->
-        <div class="card research-card" v-if="researchStats.recent_projects?.length > 0">
+        <div
+          v-if="researchStats.recent_projects?.length > 0"
+          class="card research-card"
+        >
           <h2>🔬 研究统计</h2>
 
           <div class="research-stats-grid">
             <div class="stat-item">
-              <div class="stat-label">总问题数</div>
-              <div class="stat-value">{{ researchStats.questions?.total || 0 }}</div>
+              <div class="stat-label">
+                总问题数
+              </div>
+              <div class="stat-value">
+                {{ researchStats.questions?.total || 0 }}
+              </div>
             </div>
             <div class="stat-item">
-              <div class="stat-label">已完成问题</div>
-              <div class="stat-value success">{{ researchStats.questions?.completed || 0 }}</div>
+              <div class="stat-label">
+                已完成问题
+              </div>
+              <div class="stat-value success">
+                {{ researchStats.questions?.completed || 0 }}
+              </div>
             </div>
           </div>
 
-          <div class="research-section" v-if="researchStats.projects_by_status?.length > 0">
+          <div
+            v-if="researchStats.projects_by_status?.length > 0"
+            class="research-section"
+          >
             <h3>项目状态分布</h3>
             <div class="status-list">
-              <div v-for="item in researchStats.projects_by_status" :key="item.status" class="status-item">
+              <div
+                v-for="item in researchStats.projects_by_status"
+                :key="item.status"
+                class="status-item"
+              >
                 <span class="status-label">{{ item.status }}</span>
                 <span class="status-count">{{ item.count }}</span>
               </div>
@@ -259,8 +459,14 @@
           <div class="research-section">
             <h3>最近项目</h3>
             <div class="project-list">
-              <div v-for="project in researchStats.recent_projects.slice(0, 5)" :key="project.id" class="project-item">
-                <div class="project-title">{{ project.title }}</div>
+              <div
+                v-for="project in researchStats.recent_projects.slice(0, 5)"
+                :key="project.id"
+                class="project-item"
+              >
+                <div class="project-title">
+                  {{ project.title }}
+                </div>
                 <div class="project-meta">
                   <span class="project-status">{{ project.status }}</span>
                   <span class="project-date">{{ formatDate(project.updated_at) }}</span>
@@ -269,10 +475,17 @@
             </div>
           </div>
 
-          <div class="research-section" v-if="researchStats.materials_by_type?.length > 0">
+          <div
+            v-if="researchStats.materials_by_type?.length > 0"
+            class="research-section"
+          >
             <h3>研究材料类型</h3>
             <div class="material-list">
-              <div v-for="item in researchStats.materials_by_type" :key="item.type" class="material-item">
+              <div
+                v-for="item in researchStats.materials_by_type"
+                :key="item.type"
+                class="material-item"
+              >
                 <span class="material-type">{{ item.type }}</span>
                 <span class="material-count">{{ item.count }}</span>
               </div>
@@ -281,32 +494,58 @@
         </div>
 
         <!-- Daily Summary Statistics -->
-        <div class="card summary-card" v-if="summaryStats.statistics?.total > 0">
+        <div
+          v-if="summaryStats.statistics?.total > 0"
+          class="card summary-card"
+        >
           <h2>📅 每日总结统计</h2>
 
           <div class="summary-stats-grid">
             <div class="stat-item">
-              <div class="stat-label">总结总数</div>
-              <div class="stat-value">{{ summaryStats.statistics?.total || 0 }}</div>
+              <div class="stat-label">
+                总结总数
+              </div>
+              <div class="stat-value">
+                {{ summaryStats.statistics?.total || 0 }}
+              </div>
             </div>
             <div class="stat-item">
-              <div class="stat-label">平均长度</div>
-              <div class="stat-value">{{ summaryStats.statistics?.avg_length || 0 }} 字</div>
+              <div class="stat-label">
+                平均长度
+              </div>
+              <div class="stat-value">
+                {{ summaryStats.statistics?.avg_length || 0 }} 字
+              </div>
             </div>
             <div class="stat-item">
-              <div class="stat-label">最早日期</div>
-              <div class="stat-value small">{{ summaryStats.statistics?.earliest_date || '-' }}</div>
+              <div class="stat-label">
+                最早日期
+              </div>
+              <div class="stat-value small">
+                {{ summaryStats.statistics?.earliest_date || '-' }}
+              </div>
             </div>
             <div class="stat-item">
-              <div class="stat-label">最新日期</div>
-              <div class="stat-value small">{{ summaryStats.statistics?.latest_date || '-' }}</div>
+              <div class="stat-label">
+                最新日期
+              </div>
+              <div class="stat-value small">
+                {{ summaryStats.statistics?.latest_date || '-' }}
+              </div>
             </div>
           </div>
 
-          <div class="summary-section" v-if="summaryStats.recent_summaries?.length > 0">
+          <div
+            v-if="summaryStats.recent_summaries?.length > 0"
+            class="summary-section"
+          >
             <h3>最近总结</h3>
             <div class="summary-list">
-              <div v-for="summary in summaryStats.recent_summaries.slice(0, 10)" :key="summary.date" class="summary-item">
+              <div
+                v-for="summary in summaryStats.recent_summaries.slice(0, 10)"
+                :key="summary.date"
+                class="summary-item"
+              >
                 <span class="summary-date">{{ summary.date }}</span>
                 <span class="summary-length">{{ summary.summary_length }} 字</span>
               </div>

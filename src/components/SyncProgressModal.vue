@@ -1,9 +1,19 @@
 <template>
-  <div v-if="visible" class="modal-overlay" @click.self="handleClose">
+  <div
+    v-if="visible"
+    class="modal-overlay"
+    @click.self="handleClose"
+  >
     <div class="modal-container">
       <div class="modal-header">
         <h2>飞书同步进度</h2>
-        <button class="close-btn" @click="handleClose" :disabled="isRunning">×</button>
+        <button
+          class="close-btn"
+          :disabled="isRunning"
+          @click="handleClose"
+        >
+          ×
+        </button>
       </div>
 
       <div class="modal-body">
@@ -11,33 +21,119 @@
         <div class="progress-section">
           <div class="progress-info">
             <span class="progress-label">{{ status.message || '准备同步...' }}</span>
-            <span class="progress-percent">{{ status.progress || 0 }}%</span>
+            <span
+              class="progress-percent"
+              :class="{ 'pulse': isRunning }"
+            >{{ status.progress || 0 }}%</span>
           </div>
           <div class="progress-bar">
             <div
               class="progress-fill"
               :style="{ width: (status.progress || 0) + '%' }"
-              :class="{ 'progress-error': status.status === 'failed' }">
-            </div>
+              :class="{
+                'progress-error': status.status === 'failed',
+                'progress-success': status.status === 'finished'
+              }"
+            />
+            <div
+              v-if="isRunning"
+              class="progress-glow"
+              :style="{ left: (status.progress || 0) + '%' }"
+            />
           </div>
         </div>
 
         <!-- 同步阶段指示 -->
-        <div class="stage-indicator" v-if="status.stage">
-          <div class="stage-item" :class="{ active: status.stage === 'init' }">
-            <div class="stage-dot"></div>
+        <div
+          v-if="status.stage"
+          class="stage-indicator"
+        >
+          <div
+            class="stage-item"
+            :class="getStageClass('init')"
+          >
+            <div class="stage-dot">
+              <svg
+                v-if="isStageCompleted('init')"
+                class="check-icon"
+                viewBox="0 0 24 24"
+              >
+                <polyline points="20 6 9 17 4 12" />
+              </svg>
+              <span
+                v-else
+                class="stage-number"
+              >1</span>
+            </div>
             <span>初始化</span>
           </div>
-          <div class="stage-item" :class="{ active: status.stage === 'pushing' }">
-            <div class="stage-dot"></div>
+          <div
+            class="stage-line"
+            :class="{ completed: isStageCompleted('init') }"
+          />
+          <div
+            class="stage-item"
+            :class="getStageClass('pushing')"
+          >
+            <div class="stage-dot">
+              <svg
+                v-if="isStageCompleted('pushing')"
+                class="check-icon"
+                viewBox="0 0 24 24"
+              >
+                <polyline points="20 6 9 17 4 12" />
+              </svg>
+              <span
+                v-else
+                class="stage-number"
+              >2</span>
+            </div>
             <span>推送到飞书</span>
           </div>
-          <div class="stage-item" :class="{ active: status.stage === 'pulling' }">
-            <div class="stage-dot"></div>
+          <div
+            class="stage-line"
+            :class="{ completed: isStageCompleted('pushing') }"
+          />
+          <div
+            class="stage-item"
+            :class="getStageClass('pulling')"
+          >
+            <div class="stage-dot">
+              <svg
+                v-if="isStageCompleted('pulling')"
+                class="check-icon"
+                viewBox="0 0 24 24"
+              >
+                <polyline points="20 6 9 17 4 12" />
+              </svg>
+              <span
+                v-else
+                class="stage-number"
+              >3</span>
+            </div>
             <span>拉取到本地</span>
           </div>
-          <div class="stage-item" :class="{ active: status.stage === 'finished' }">
-            <div class="stage-dot"></div>
+          <div
+            class="stage-line"
+            :class="{ completed: isStageCompleted('pulling') }"
+          />
+          <div
+            class="stage-item"
+            :class="getStageClass('finished')"
+          >
+            <div class="stage-dot">
+              <svg
+                v-if="status.stage === 'finished'"
+                class="check-icon"
+                viewBox="0 0 24 24"
+              >
+                <polyline points="20 6 9 17 4 12" />
+              </svg>
+              <span
+                v-else
+                class="stage-number"
+              >4</span>
+            </div>
             <span>完成</span>
           </div>
         </div>
@@ -46,38 +142,67 @@
         <div class="log-section">
           <div class="log-header">
             <span>同步日志</span>
-            <button class="clear-log-btn" @click="clearLogs" v-if="logs.length > 0">清空</button>
+            <button
+              v-if="logs.length > 0"
+              class="clear-log-btn"
+              @click="clearLogs"
+            >
+              清空
+            </button>
           </div>
-          <div class="log-container" ref="logContainer">
+          <div
+            ref="logContainer"
+            class="log-container"
+          >
             <div
               v-for="(log, index) in logs"
               :key="index"
               class="log-item"
-              :class="log.type">
+              :class="log.type"
+            >
               <span class="log-time">{{ log.time }}</span>
               <span class="log-message">{{ log.message }}</span>
             </div>
-            <div v-if="logs.length === 0" class="log-empty">
+            <div
+              v-if="logs.length === 0"
+              class="log-empty"
+            >
               等待同步开始...
             </div>
           </div>
         </div>
 
         <!-- 统计信息 -->
-        <div class="stats-section" v-if="stats.total > 0">
+        <div
+          v-if="stats.total > 0 || isRunning"
+          class="stats-section"
+        >
           <div class="stat-item">
             <span class="stat-label">总计</span>
             <span class="stat-value">{{ stats.total }}</span>
+          </div>
+          <div
+            v-if="processingCount > 0"
+            class="stat-item processing"
+          >
+            <span class="stat-label">进行中</span>
+            <span class="stat-value">{{ processingCount }}</span>
           </div>
           <div class="stat-item success">
             <span class="stat-label">成功</span>
             <span class="stat-value">{{ stats.success }}</span>
           </div>
-          <div class="stat-item failed" v-if="stats.failed > 0">
+          <div
+            v-if="stats.failed > 0"
+            class="stat-item failed"
+          >
             <span class="stat-label">失败</span>
             <span class="stat-value">{{ stats.failed }}</span>
           </div>
-          <div class="stat-item conflict" v-if="stats.conflicts > 0">
+          <div
+            v-if="stats.conflicts > 0"
+            class="stat-item conflict"
+          >
             <span class="stat-label">冲突</span>
             <span class="stat-value">{{ stats.conflicts }}</span>
           </div>
@@ -87,8 +212,9 @@
       <div class="modal-footer">
         <button
           class="btn-close"
+          :disabled="isRunning"
           @click="handleClose"
-          :disabled="isRunning">
+        >
           {{ isRunning ? '同步中...' : '关闭' }}
         </button>
       </div>
@@ -130,6 +256,34 @@ const logContainer = ref(null)
 const isRunning = computed(() => {
   return props.status.status === 'running'
 })
+
+// 计算进行中的数量
+const processingCount = computed(() => {
+  return Math.max(0, stats.value.total - stats.value.success - stats.value.failed - stats.value.conflicts)
+})
+
+// 阶段顺序
+const stageOrder = ['init', 'pushing', 'pulling', 'finished']
+
+// 判断阶段是否已完成
+function isStageCompleted(stage) {
+  const currentIndex = stageOrder.indexOf(props.status.stage)
+  const stageIndex = stageOrder.indexOf(stage)
+  return currentIndex > stageIndex
+}
+
+// 获取阶段的CSS类
+function getStageClass(stage) {
+  const currentIndex = stageOrder.indexOf(props.status.stage)
+  const stageIndex = stageOrder.indexOf(stage)
+
+  if (currentIndex > stageIndex) {
+    return 'completed'
+  } else if (currentIndex === stageIndex) {
+    return 'active'
+  }
+  return ''
+}
 
 // 监听状态变化，添加日志
 watch(() => props.status, (newStatus, oldStatus) => {
@@ -303,34 +457,92 @@ defineExpose({
 }
 
 .progress-percent {
-  font-size: 16px;
-  font-weight: 600;
+  font-size: 18px;
+  font-weight: 700;
   color: var(--accent-primary);
+  font-variant-numeric: tabular-nums;
+}
+
+.progress-percent.pulse {
+  animation: pulse-glow 1.5s ease-in-out infinite;
+}
+
+@keyframes pulse-glow {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.6; }
 }
 
 .progress-bar {
-  height: 8px;
+  height: 10px;
   background: var(--bg-surface-hover);
-  border-radius: 4px;
+  border-radius: 5px;
   overflow: hidden;
+  position: relative;
 }
 
 .progress-fill {
   height: 100%;
   background: linear-gradient(90deg, var(--accent-primary), var(--accent-secondary));
   transition: width 0.3s ease;
-  border-radius: 4px;
+  border-radius: 5px;
+  position: relative;
+}
+
+.progress-fill::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.2) 50%,
+    transparent 100%
+  );
+  animation: shimmer 2s infinite;
+}
+
+@keyframes shimmer {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
 }
 
 .progress-fill.progress-error {
   background: linear-gradient(90deg, #ef4444, #dc2626);
 }
 
+.progress-fill.progress-error::after {
+  display: none;
+}
+
+.progress-fill.progress-success {
+  background: linear-gradient(90deg, #10b981, #059669);
+}
+
+.progress-fill.progress-success::after {
+  display: none;
+}
+
+.progress-glow {
+  position: absolute;
+  top: -2px;
+  width: 20px;
+  height: 14px;
+  background: var(--accent-primary);
+  border-radius: 50%;
+  filter: blur(8px);
+  opacity: 0.6;
+  transform: translateX(-50%);
+  pointer-events: none;
+}
+
 .stage-indicator {
   display: flex;
-  justify-content: space-between;
+  align-items: flex-start;
   margin-bottom: 24px;
-  padding: 16px;
+  padding: 20px 16px;
   background: var(--bg-surface-hover);
   border-radius: var(--radius-lg);
 }
@@ -339,50 +551,98 @@ defineExpose({
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
+  flex: 0 0 auto;
+  min-width: 70px;
+}
+
+.stage-line {
   flex: 1;
-  position: relative;
-}
-
-.stage-item:not(:last-child)::after {
-  content: '';
-  position: absolute;
-  top: 8px;
-  left: 50%;
-  width: 100%;
-  height: 2px;
+  height: 3px;
   background: var(--border-color);
-  z-index: 0;
+  margin-top: 14px;
+  border-radius: 2px;
+  transition: all 0.3s ease;
+  min-width: 30px;
 }
 
-.stage-item.active:not(:last-child)::after {
-  background: var(--accent-primary);
+.stage-line.completed {
+  background: linear-gradient(90deg, #10b981, #059669);
 }
 
 .stage-dot {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--bg-surface);
+  border: 3px solid var(--border-color);
+  transition: all 0.3s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  flex-shrink: 0;
+}
+
+.stage-number {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-tertiary);
+}
+
+.check-icon {
   width: 16px;
   height: 16px;
-  border-radius: 50%;
-  background: var(--border-color);
-  border: 3px solid var(--bg-surface-hover);
-  transition: all 0.3s;
-  z-index: 1;
+  stroke: white;
+  stroke-width: 3;
+  fill: none;
 }
 
 .stage-item.active .stage-dot {
   background: var(--accent-primary);
-  box-shadow: 0 0 12px var(--accent-primary);
+  border-color: var(--accent-primary);
+  box-shadow: 0 0 16px var(--accent-primary);
+  animation: stage-pulse 2s ease-in-out infinite;
 }
 
-.stage-item span {
+.stage-item.active .stage-number {
+  color: white;
+}
+
+@keyframes stage-pulse {
+  0%, 100% { box-shadow: 0 0 8px var(--accent-primary); }
+  50% { box-shadow: 0 0 20px var(--accent-primary); }
+}
+
+.stage-item.completed .stage-dot {
+  background: linear-gradient(135deg, #10b981, #059669) !important;
+  border-color: #10b981 !important;
+  box-shadow: 0 0 8px rgba(16, 185, 129, 0.4);
+}
+
+.stage-item.completed .check-icon {
+  stroke: white;
+}
+
+.stage-item.completed .stage-number {
+  display: none;
+}
+
+.stage-item span:not(.stage-number) {
   font-size: 12px;
   color: var(--text-tertiary);
   white-space: nowrap;
+  text-align: center;
 }
 
-.stage-item.active span {
+.stage-item.active span:not(.stage-number) {
   color: var(--accent-primary);
   font-weight: 600;
+}
+
+.stage-item.completed span:not(.stage-number) {
+  color: #10b981;
+  font-weight: 500;
 }
 
 .log-section {
@@ -526,6 +786,11 @@ defineExpose({
 
 .stat-item.success .stat-value {
   color: #10b981;
+}
+
+.stat-item.processing .stat-value {
+  color: var(--accent-primary);
+  animation: pulse-glow 1.5s ease-in-out infinite;
 }
 
 .stat-item.failed .stat-value {

@@ -1,10 +1,18 @@
 <template>
   <div id="app">
-    <div v-if="hasError" class="global-error-boundary">
+    <div
+      v-if="hasError"
+      class="global-error-boundary"
+    >
       <div class="error-content">
         <h2>应用遇到错误</h2>
         <pre class="error-message">{{ errorMessage }}</pre>
-        <button class="btn-retry" @click="reload">刷新页面</button>
+        <button
+          class="btn-retry"
+          @click="reload"
+        >
+          刷新页面
+        </button>
       </div>
     </div>
     <template v-else>

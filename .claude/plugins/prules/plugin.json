@@ -1,0 +1,11 @@
+{
+  "name": "prules",
+  "version": "1.0.0",
+  "description": "个人编码标准和工作流程 - TDD、中文注释、完整错误处理、Git工作流",
+  "skills": [
+    {
+      "name": "prules",
+      "path": "skills/prules/SKILL.md"
+    }
+  ]
+}

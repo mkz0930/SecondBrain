@@ -4,9 +4,11 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Second Brain (外挂大脑) is a personal knowledge management tool built with Vue 3 and Node.js. It supports accumulating and organizing notes, articles, audio/video content, and books with AI-powered content analysis and Feishu (飞书) integration.
+Second Brain (外挂大脑) is a personal knowledge management tool with **Web** and **Android** clients. Built with Vue 3, Node.js, and React Native, it supports content collection, AI analysis, Feishu sync, and research assistance.
 
 ## Development Commands
+
+### Web Application
 
 ```bash
 # Install dependencies
@@ -30,34 +32,86 @@ npm run build
 
 # Preview production build
 npm run preview
+
+# Testing
+npm test                    # Run all tests
+npm run test:watch          # Watch mode
+npm run test:coverage       # Coverage report
+npm run test:api            # API tests only
+npm run test:services       # Service tests only
+
+# Run a single test file
+npx mocha test/api/contents.test.js --timeout 10000 --exit
+
+# Code quality
+npm run lint                # ESLint check
+npm run update-requirements # Update requirements doc
+```
+
+### Android Application
+
+```bash
+# Navigate to mobile directory
+cd mobile
+
+# Install dependencies
+npm install
+
+# Run on Android device/emulator
+npm run android
+# or
+react-native run-android
+
+# Start Metro bundler
+npm start
+
+# Build release APK
+cd android
+./gradlew assembleRelease
+# Output: android/app/build/outputs/apk/release/app-release.apk
 ```
 
 ## Architecture
 
-### Client-Server Structure
-- **Frontend**: Vue 3 SPA (port 5173) with Composition API, Pinia state, Vue Router
-- **Backend**: Express.js REST API (port 3000) with SQLite database
+### Multi-Platform Structure
+- **Web Frontend**: Vue 3 SPA (port 5173) with Composition API, Pinia state, Vue Router
+- **Backend API**: Express.js REST API (port 3000) with SQLite database
+- **Android App**: React Native 0.73 with background clipboard monitoring
 - **API Proxy**: Vite proxies `/api` requests to `http://127.0.0.1:3000`
 
 ### Data Flow
+
+**Web Application**:
 ```
 Vue Components → Pinia Stores → Axios → Express Routes → Services → SQLite
 ```
 
+**Android Application**:
+```
+Clipboard Monitor → Local Queue (SQLite) → API Service → Backend API → Feishu Sync
+```
+
 ### Key Directories
 
-**Frontend (`src/`)**:
-- `views/` - Page components (Home, Login, Content views)
+**Web Frontend (`src/`)**:
+- `views/` - Page components (Home, Login, Content, Research)
 - `stores/` - Pinia stores (user.js, content.js, tag.js)
 - `router/` - Vue Router config
 - `utils/` - Frontend utilities
 
 **Backend (`server/`)**:
-- `routes/` - API route handlers (auth.js, contents.js, tags.js, stats.js, feishu.js, daily-summary.js, research.js)
-- `services/` - Business logic (ai-service.js, feishu-adapter.js, sync-service.js, sync-scheduler.js, daily-summary-service.js, research-service.js)
+- `routes/` - API route handlers (auth, contents, tags, stats, feishu, daily-summary, research, graph, database, upload)
+- `services/` - Business logic (ai-service, feishu-adapter, sync-service, sync-scheduler, daily-summary-service, research-service)
 - `models/` - Data access layer (database.js, users.js)
 - `middleware/` - Express middleware (auth.js)
 - `utils/` - Backend utilities (logger.js)
+
+**Android App (`mobile/`)**:
+- `src/screens/` - React Native screens (Home, ContentList, Settings)
+- `src/services/` - Services (ClipboardService, ApiService, SyncService)
+- `src/database/` - SQLite queue management (ClipboardQueue.js)
+- `src/utils/` - Utilities (urlValidator.js)
+- `android/` - Native Android configuration
 
 ### Database Schema (SQLite)
 
@@ -105,8 +159,10 @@ Google Generative AI (Gemini) for:
 **Environment variables**:
 - `GOOGLE_API_KEY` or `GEMINI_API_KEY` - Required for AI features
 
-**Model fallback chain** (in `server/services/ai-service.js`):
-- gemini-3-flash-preview → gemini-2.5-flash-lite → gemini-2.5-flash → gemma-3-27b-it
+**AI Model** (configured in `server/services/ai-base.js`):
+- Primary model: `gemini-3-flash-preview`
+- Retry logic: 3 retries per model with exponential backoff
+- Concurrency: max 100 concurrent requests, 20 per batch
 
 ## Environment Configuration
 
@@ -141,7 +197,7 @@ The system uses these exact type values: "随笔" (notes), "文章" (articles), 
 - AI-generated insights
 - Historical summary viewing
 
-### 4. Research Assistant (NEW)
+### 4. Research Assistant
 - **Dialogue-based research workflow**: AI guides users through research process
 - **Requirement analysis**: AI generates research questions based on topic
 - **Material collection**: Searches local content library for relevant materials
@@ -162,12 +218,75 @@ The system uses these exact type values: "随笔" (notes), "文章" (articles), 
 
 See `docs/research-assistant.md` for detailed documentation.
 
+### 5. Android Clipboard Monitoring
+- **Background monitoring**: Detects article URLs copied to clipboard
+- **Smart filtering**: Automatically filters non-article URLs (images, videos, e-commerce)
+- **Offline queue**: Local SQLite queue for offline content storage
+- **Auto-sync**: Syncs to backend and Feishu when network available
+- **Notification interaction**: User confirmation before saving
+- **Foreground service**: Persistent background operation
+
+**Android API endpoints used**:
+- `POST /api/auth/login` - User authentication
+- `POST /api/contents/quick-save` - Fast content save (recommended)
+- `POST /api/contents/batch` - Batch content save
+- `GET /api/contents` - Fetch content list
+- `POST /api/feishu/sync` - Trigger Feishu sync
+
+See `mobile/README.md` for Android app documentation.
+
+## Testing
+
+The project has a comprehensive test suite using Mocha, Chai, and Supertest:
+
+```bash
+# Run all tests
+npm test
+
+# Run specific test suites
+npm run test:api        # API endpoint tests
+npm run test:services   # Service layer tests
+
+# Watch mode for development
+npm run test:watch
+
+# Generate coverage report
+npm run test:coverage
+```
+
+**Test structure**:
+- `test/api/` - API endpoint tests (contents, tags, auth)
+- `test/services/` - Service layer tests (ai-service, sync-service)
+- `test/frontend/` - Frontend component tests
+
+**Test database**: Tests use a separate test database to avoid affecting development data.
+
 ## Important Notes
 
-1. **No test files** - The project does not have a test suite. When testing features, test manually by running the dev servers.
+1. **Logging** - Always use `logger.info/warn/error/debug()` from `server/utils/logger.js` for backend operations, not `console.log`. Logs are stored in `logs/` directory with daily rotation.
 
-2. **Logging** - Always use `logger.info/warn/error/debug()` from `server/utils/logger.js` for backend operations, not `console.log`. See `.qoder/rules/log.md`.
+2. **Database** - SQLite file at `data/brain.db` is not git-tracked. Auto-migration handles schema changes via `ensureColumn()` in `server/models/database.js`. Use `scripts/inspect_db.js` to inspect database contents.
 
-3. **Database** - SQLite file at `data/brain.db` is not git-tracked. Auto-migration handles schema changes via `ensureColumn()` in `server/models/database.js`.
+3. **AI Integration** - Requires valid `GOOGLE_API_KEY` or `GEMINI_API_KEY` environment variable. Uses `gemini-3-flash-preview` model with retry logic and concurrency control (max 100 concurrent, 20 per batch). Research assistant works best when local content library has relevant materials.
 
-4. **Research Assistant** - Requires valid `GOOGLE_API_KEY` or `GEMINI_API_KEY`. Works best when local content library has relevant materials.
+4. **Path alias** - Frontend uses `@` alias for `src/` directory (configured in `vite.config.js`).
+
+5. **Naming conventions**:
+   - Components: PascalCase (e.g., `HomeView.vue`)
+   - Files: kebab-case (e.g., `ai-service.js`)
+   - Variables/functions: camelCase
+   - Constants: UPPER_SNAKE_CASE
+
+6. **API responses** - Backend APIs return consistent format: `{ success: boolean, data?: any, message?: string }`
+
+7. **Error handling** - Routes should catch errors, log with `logger.error()`, and return 500 with error message.
+
+8. **Android Development**:
+   - Android emulator uses `http://10.0.2.2:3000` to access localhost backend
+   - Real devices need the computer's LAN IP address
+   - Clipboard monitoring requires foreground service and notification permissions
+   - Battery optimization must be disabled for reliable background operation
+
+9. **Feishu Sync** - Can be disabled by setting `FEISHU_SYNC_ENABLED=false`. Sync scheduler runs every 5 minutes by default (configured in `sync-scheduler.js`).
+
+10. **Static files** - Uploaded files are served from `/uploads` directory via Express static middleware.

@@ -32,7 +32,8 @@ export const contentTypes = {
   note: '随笔',
   article: '文章',
   media: '音视频',
-  book: '书籍'
+  book: '书籍',
+  bilibili: 'B站'
 }
 
 // 获取内容类型显示名称

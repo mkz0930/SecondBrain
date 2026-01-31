@@ -433,7 +433,7 @@ export class FeishuAdapter {
       '摘要': content.summary || '',
       '内容类型': typeMap[content.type] || content.type,
       '内容正文': content.content || '',
-      '来源': content.source || null,
+      '来源': content.url || content.source || null,
       '评分': content.rating || null,
       '是否收藏': Boolean(content.is_favorite),
       '标签': tags.map(tag => tag.name),
@@ -457,39 +457,39 @@ export class FeishuAdapter {
 
           // 特殊类型处理
           if (fieldInfo) {
-             // 3 is Single Select type - convert to string
-             if (fieldInfo.type === 3 && value) {
-                 // 单选字段：确保值是字符串
-                 if (Array.isArray(value)) {
-                   value = value[0] || ''
-                 } else {
-                   value = String(value)
-                 }
-             }
-             // 4 is Multi Select type - convert to array of strings
-             if (fieldInfo.type === 4 && value) {
-                 // 多选字段：确保值是字符串数组
-                 if (!Array.isArray(value)) {
-                   value = [String(value)]
-                 } else {
-                   value = value.map(v => String(v))
-                 }
-             }
-             // 15 is Hyperlink type
-             if (fieldInfo.type === 15 && value && typeof value === 'string') {
-                 value = { text: value, link: value }
-             }
-             // 17 is Attachment type - convert array to Feishu attachment format
-             if (fieldInfo.type === 17 && Array.isArray(value)) {
-                 value = value.map(att => ({
-                   file_token: att.file_token || '',
-                   name: att.name || '',
-                   type: att.type || '',
-                   size: att.size || 0,
-                   url: att.url || '',
-                   tmp_url: att.tmp_url || ''
-                 }))
-             }
+            // 3 is Single Select type - convert to string
+            if (fieldInfo.type === 3 && value) {
+              // 单选字段：确保值是字符串
+              if (Array.isArray(value)) {
+                value = value[0] || ''
+              } else {
+                value = String(value)
+              }
+            }
+            // 4 is Multi Select type - convert to array of strings
+            if (fieldInfo.type === 4 && value) {
+              // 多选字段：确保值是字符串数组
+              if (!Array.isArray(value)) {
+                value = [String(value)]
+              } else {
+                value = value.map(v => String(v))
+              }
+            }
+            // 15 is Hyperlink type
+            if (fieldInfo.type === 15 && value && typeof value === 'string') {
+              value = { text: value, link: value }
+            }
+            // 17 is Attachment type - convert array to Feishu attachment format
+            if (fieldInfo.type === 17 && Array.isArray(value)) {
+              value = value.map(att => ({
+                file_token: att.file_token || '',
+                name: att.name || '',
+                type: att.type || '',
+                size: att.size || 0,
+                url: att.url || '',
+                tmp_url: att.tmp_url || ''
+              }))
+            }
           }
 
           finalFields[matchedField] = value
@@ -514,7 +514,7 @@ export class FeishuAdapter {
    */
   convertFromFeishuRecord(record) {
     const fields = record.fields
-    
+
     // 辅助方法：尝试获取字段值（支持多个别名）
     const getFieldValue = (aliases) => {
       for (const alias of aliases) {
@@ -527,7 +527,8 @@ export class FeishuAdapter {
 
     // 获取分类/类型
     const rawType = this.extractText(getFieldValue(['内容类型', '分类', 'Type', 'Category']))
-    
+
+    // 旧类型映射（兼容旧数据）
     const typeMap = {
       '随笔': 'note',
       '文章': 'article',
@@ -535,10 +536,26 @@ export class FeishuAdapter {
       '书籍': 'book'
     }
 
+    // 新类型列表（AI分析产生的类型，直接保留）
+    const newTypes = ['随便', '抖音', '公众号', '文档', 'B站', '其他']
+
+    // 确定最终类型：新类型直接保留，旧类型转换，未知类型默认为 'note'
+    let finalType
+    if (newTypes.includes(rawType)) {
+      // 新类型直接保留原值
+      finalType = rawType
+    } else if (typeMap[rawType]) {
+      // 旧类型转换为英文标识
+      finalType = typeMap[rawType]
+    } else {
+      // 未知类型默认为 note
+      finalType = 'note'
+    }
+
     // 提取原始数据
     let title = this.extractText(getFieldValue(['标题', 'Title', 'Name']))
     const content = this.extractText(getFieldValue(['内容正文', '内容', '正文', '记录', 'Content', 'Body']))
-    
+
     // 如果标题为空，且内容不为空，自动截取内容作为标题
     if (!title && content) {
       // 截取前30个字符
@@ -550,7 +567,7 @@ export class FeishuAdapter {
       id: getFieldValue(['记录ID', 'ID']) ? parseInt(getFieldValue(['记录ID', 'ID']), 10) : null,
       title: title,
       summary: this.extractText(getFieldValue(['摘要', 'Summary', 'Abstract', '简介', '描述', 'Description'])),
-      type: typeMap[rawType] || 'note',
+      type: finalType,
       content: content,
       source: this.extractText(getFieldValue(['来源', '链接', 'URL', 'Source', 'Link'])),
       rating: getFieldValue(['评分', 'Rating']),

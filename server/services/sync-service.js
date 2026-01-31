@@ -1,7 +1,7 @@
 import { query, queryOne, run } from '../models/database.js'
 import { FeishuAdapter } from './feishu-adapter.js'
 import { syncState } from './sync-state.js'
-import { analyzeContent } from './ai-service.js'
+import { analyzeContentSmart } from './ai-service.js'
 import { dailySummaryService } from './daily-summary-service.js'
 
 /**
@@ -26,10 +26,11 @@ export class SyncService {
   /**
    * 执行双向同步
    */
-  async performSync(syncType = 'manual', direction = 'both', force = false) {
+  async performSync(syncType = 'manual', direction = 'both', options = {}) {
+    const { forceUpdate = false } = typeof options === 'object' ? options : { forceUpdate: options }
     const syncId = await this.createSyncLog(syncType)
     const startTime = Date.now()
-    
+
     const stats = {
       total: 0,
       success: 0,
@@ -39,7 +40,7 @@ export class SyncService {
     }
 
     try {
-      this.logger.info(`[SyncService] 开始飞书同步，用户ID: ${this.userId}，同步类型: ${syncType}，方向: ${direction}，强制: ${force}`)
+      this.logger.info(`[SyncService] 开始飞书同步，用户ID: ${this.userId}，同步类型: ${syncType}，方向: ${direction}，强制更新: ${forceUpdate}`)
 
       // 初始化进度状态
       syncState.set(this.userId, {
@@ -56,7 +57,7 @@ export class SyncService {
 
       if (direction === 'both' || direction === 'push') {
         // 推送本地变更到飞书
-        const pushStats = await this.pushToFeishu()
+        const pushStats = await this.pushToFeishu({ forceUpdate })
         stats.total += pushStats.total
         stats.success += pushStats.success
         stats.failed += pushStats.failed
@@ -65,7 +66,7 @@ export class SyncService {
 
       if (direction === 'both' || direction === 'pull') {
         // 拉取飞书变更到本地
-        const pullStats = await this.pullFromFeishu(force)
+        const pullStats = await this.pullFromFeishu(forceUpdate)
         stats.total += pullStats.total
         stats.success += pullStats.success
         stats.failed += pullStats.failed
@@ -116,9 +117,12 @@ export class SyncService {
 
   /**
    * 推送本地变更到飞书
+   * @param {Object} options - 选项
+   * @param {boolean} options.forceUpdate - 是否强制更新所有已同步的记录
    */
-  async pushToFeishu() {
-    this.logger.info('[SyncService] 开始推送本地变更到飞书')
+  async pushToFeishu(options = {}) {
+    const { forceUpdate = false } = options
+    this.logger.info(`[SyncService] 开始推送本地变更到飞书${forceUpdate ? ' (强制更新模式)' : ''}`)
     
     syncState.update(this.userId, {
       stage: 'pushing',
@@ -149,17 +153,17 @@ export class SyncService {
         const missingFields = requiredFields.filter(f => !allFieldNames.includes(f))
 
         if (missingFields.length > 0) {
-           this.logger.warn(`[SyncService] Warning: Missing critical fields in Feishu table: ${missingFields.join(', ')}. Sync might be incomplete.`)
+          this.logger.warn(`[SyncService] Warning: Missing critical fields in Feishu table: ${missingFields.join(', ')}. Sync might be incomplete.`)
         }
       } catch (error) {
         this.logger.warn('[SyncService] Failed to fetch fields from Feishu, proceeding without filtering:', error.message)
       }
 
       // 检测本地变更
-      const changes = await this.detectLocalChanges()
+      const changes = await this.detectLocalChanges(forceUpdate)
       stats.total = changes.creates.length + changes.updates.length + changes.deletes.length
-      
-      this.logger.info(`[SyncService] 检测到本地变更 ${stats.total} 条: 新增 ${changes.creates.length}, 更新 ${changes.updates.length}, 删除 ${changes.deletes.length}`)
+
+      this.logger.info(`[SyncService] 检测到本地变更 ${stats.total} 条: 新增 ${changes.creates.length}, 更新 ${changes.updates.length}, 删除 ${changes.deletes.length}${forceUpdate ? ' (强制更新)' : ''}`)
 
       syncState.update(this.userId, {
         message: `检测到本地变更 ${stats.total} 条，准备推送...`,
@@ -223,13 +227,13 @@ export class SyncService {
    */
   async pullFromFeishu() {
     this.logger.info('[SyncService] 开始拉取飞书变更到本地')
-    
+
     syncState.update(this.userId, {
       stage: 'pulling',
       message: '正在拉取飞书数据...',
       progress: 0
     })
-    
+
     const stats = {
       total: 0,
       success: 0,
@@ -239,6 +243,16 @@ export class SyncService {
     }
 
     try {
+      // 获取飞书字段列表，用于回填时正确匹配字段名
+      let availableFields = null
+      try {
+        const [appToken, tableId] = this.tableId.split('_')
+        availableFields = await this.adapter.getFields(appToken, tableId)
+        this.logger.info(`[SyncService] Pull: Fetched ${availableFields.length} fields from Feishu table`)
+      } catch (error) {
+        this.logger.warn('[SyncService] Pull: Failed to fetch fields from Feishu:', error.message)
+      }
+
       // 获取飞书所有记录
       const feishuRecords = await this.fetchAllFeishuRecords()
       this.logger.info(`[SyncService] 从飞书获取到 ${feishuRecords.length} 条记录`)
@@ -254,9 +268,9 @@ export class SyncService {
       if (conflicts.length > 0) {
         this.logger.warn(`[SyncService] 检测到冲突 ${conflicts.length} 条`)
         syncState.update(this.userId, { message: `正在解决 ${conflicts.length} 个冲突...` })
-        
+
         // 解决冲突：飞书端优先
-        const conflictResult = await this.resolveConflicts(conflicts)
+        const conflictResult = await this.resolveConflicts(conflicts, availableFields)
         stats.success += conflictResult.success
         stats.failed += conflictResult.failed
         stats.details.push(...conflictResult.details)
@@ -279,7 +293,7 @@ export class SyncService {
       // 处理新增
       if (changes.creates.length > 0) {
         syncState.update(this.userId, { message: `正在同步到本地 (新增 ${changes.creates.length} 条)...` })
-        const createResult = await this.createLocalContents(changes.creates)
+        const createResult = await this.createLocalContents(changes.creates, availableFields)
         stats.success += createResult.success
         stats.failed += createResult.failed
         stats.details.push(...createResult.details)
@@ -290,7 +304,7 @@ export class SyncService {
       // 处理更新
       if (changes.updates.length > 0) {
         syncState.update(this.userId, { message: `正在同步到本地 (更新 ${changes.updates.length} 条)...` })
-        const updateResult = await this.updateLocalContents(changes.updates)
+        const updateResult = await this.updateLocalContents(changes.updates, availableFields)
         stats.success += updateResult.success
         stats.failed += updateResult.failed
         stats.details.push(...updateResult.details)
@@ -316,8 +330,9 @@ export class SyncService {
 
   /**
    * 检测本地变更
+   * @param {boolean} forceUpdate - 是否强制更新所有已同步的记录
    */
-  async detectLocalChanges() {
+  async detectLocalChanges(forceUpdate = false) {
     // 新增：本地有但映射表中没有的
     const creates = await query(`
       SELECT c.*, GROUP_CONCAT(t.name) as tag_names
@@ -325,31 +340,47 @@ export class SyncService {
       LEFT JOIN feishu_sync_mapping m ON c.id = m.content_id
       LEFT JOIN content_tags ct ON c.id = ct.content_id
       LEFT JOIN tags t ON ct.tag_id = t.id
-      WHERE c.user_id = ? 
-        AND c.deleted_at IS NULL 
+      WHERE c.user_id = ?
+        AND c.deleted_at IS NULL
         AND m.id IS NULL
       GROUP BY c.id
     `, [this.userId])
 
-    // 更新：本地updated_at晚于映射表记录的
-    const updates = await query(`
-      SELECT c.*, m.feishu_record_id, GROUP_CONCAT(t.name) as tag_names
-      FROM contents c
-      INNER JOIN feishu_sync_mapping m ON c.id = m.content_id
-      LEFT JOIN content_tags ct ON c.id = ct.content_id
-      LEFT JOIN tags t ON ct.tag_id = t.id
-      WHERE c.user_id = ? 
-        AND c.deleted_at IS NULL
-        AND (m.local_updated_at IS NULL OR datetime(c.updated_at) > datetime(m.local_updated_at))
-      GROUP BY c.id, m.feishu_record_id
-    `, [this.userId])
+    // 更新：本地updated_at晚于映射表记录的，或者强制更新模式下所有已同步的记录
+    let updates
+    if (forceUpdate) {
+      // 强制更新模式：获取所有已同步的记录
+      updates = await query(`
+        SELECT c.*, m.feishu_record_id, GROUP_CONCAT(t.name) as tag_names
+        FROM contents c
+        INNER JOIN feishu_sync_mapping m ON c.id = m.content_id
+        LEFT JOIN content_tags ct ON c.id = ct.content_id
+        LEFT JOIN tags t ON ct.tag_id = t.id
+        WHERE c.user_id = ?
+          AND c.deleted_at IS NULL
+        GROUP BY c.id, m.feishu_record_id
+      `, [this.userId])
+    } else {
+      // 正常模式：只获取有变更的记录
+      updates = await query(`
+        SELECT c.*, m.feishu_record_id, GROUP_CONCAT(t.name) as tag_names
+        FROM contents c
+        INNER JOIN feishu_sync_mapping m ON c.id = m.content_id
+        LEFT JOIN content_tags ct ON c.id = ct.content_id
+        LEFT JOIN tags t ON ct.tag_id = t.id
+        WHERE c.user_id = ?
+          AND c.deleted_at IS NULL
+          AND (m.local_updated_at IS NULL OR datetime(c.updated_at) > datetime(m.local_updated_at))
+        GROUP BY c.id, m.feishu_record_id
+      `, [this.userId])
+    }
 
     // 删除：本地已删除但映射表中还存在的
     const deletes = await query(`
       SELECT c.id, m.feishu_record_id
       FROM contents c
       INNER JOIN feishu_sync_mapping m ON c.id = m.content_id
-      WHERE c.user_id = ? 
+      WHERE c.user_id = ?
         AND c.deleted_at IS NOT NULL
         AND datetime(c.deleted_at) > datetime(m.last_sync_at)
     `, [this.userId])
@@ -368,13 +399,37 @@ export class SyncService {
       const fields = record.fields
       const localId = fields['记录ID'] ? parseInt(fields['记录ID'], 10) : null
 
+      // 先检查 feishu_record_id 是否已存在于映射表
+      const existingMapping = await queryOne(
+        'SELECT m.*, c.id as content_exists FROM feishu_sync_mapping m LEFT JOIN contents c ON m.content_id = c.id WHERE m.feishu_record_id = ?',
+        [record.record_id]
+      )
+
+      if (existingMapping) {
+        // 映射已存在
+        if (!existingMapping.content_exists) {
+          // 本地内容已被删除，需要重新创建
+          this.logger.info(`[SyncService] 检测到孤立映射，本地内容已删除，将重新创建: feishu_record_id=${record.record_id}`)
+          // 删除孤立映射
+          await run('DELETE FROM feishu_sync_mapping WHERE feishu_record_id = ?', [record.record_id])
+          creates.push(record)
+        } else {
+          // 检查飞书更新时间是否晚于映射表记录
+          const feishuUpdatedAt = this.adapter.timestampToDate(fields['更新时间'])
+          if (feishuUpdatedAt && feishuUpdatedAt > existingMapping.feishu_updated_at) {
+            updates.push(record)
+          }
+        }
+        continue
+      }
+
       if (!localId) {
         // 飞书新增的记录（没有记录ID）
         creates.push(record)
         continue
       }
 
-      // 检查映射表
+      // 检查映射表（通过 content_id）
       const mapping = await queryOne(
         'SELECT * FROM feishu_sync_mapping WHERE content_id = ?',
         [localId]
@@ -445,7 +500,7 @@ export class SyncService {
    * 解决冲突
    * 策略：以飞书的记录(content)和附件(attachments)为准，其他字段以本地为准
    */
-  async resolveConflicts(conflicts) {
+  async resolveConflicts(conflicts, availableFields = null) {
     const stats = { success: 0, failed: 0, details: [] }
 
     for (const conflict of conflicts) {
@@ -484,7 +539,7 @@ export class SyncService {
 
         // 6. 反向更新飞书（将本地的元数据覆盖回飞书，确保飞书元数据也是最新的）
         const tags = mergedData.tags.map(name => ({ name }))
-        const recordToUpdate = this.adapter.convertToFeishuRecord(mergedData, tags)
+        const recordToUpdate = this.adapter.convertToFeishuRecord(mergedData, tags, availableFields)
 
         await this.adapter.updateRecord(
           this.tableId.split('_')[0],
@@ -505,7 +560,7 @@ export class SyncService {
           feishu_updated_at: conflict.feishu_updated_at
         })
 
-        this.logger.info(`[SyncService] 冲突已解决，本地内容和附件已更新，飞书元数据已修正`)
+        this.logger.info('[SyncService] 冲突已解决，本地内容和附件已更新，飞书元数据已修正')
       } catch (error) {
         this.logger.error(`[SyncService] 冲突解决失败，内容ID: ${conflict.content_id}，错误:`, error.message)
         stats.failed++
@@ -599,7 +654,7 @@ export class SyncService {
         const tags = content.tag_names ? content.tag_names.split(',').map(name => ({ name })) : []
         record = this.adapter.convertToFeishuRecord(content, tags, availableFields)
 
-        this.logger.info(`[SyncService] 更新字段: 标题="${content.title}", 类型="${content.type}", 评分=${content.rating}, 收藏=${content.is_favorite}, 标签=[${tags.map(t => t.name).join(',')}]`)
+        this.logger.info(`[SyncService] 更新字段: 标题="${content.title}", 摘要="${(content.summary || '').substring(0, 50)}...", 类型="${content.type}", 评分=${content.rating}, 收藏=${content.is_favorite}, 标签=[${tags.map(t => t.name).join(',')}]`)
 
         await this.adapter.updateRecord(
           this.tableId.split('_')[0],
@@ -748,7 +803,7 @@ export class SyncService {
    * 创建本地内容
    * 策略：以飞书的记录(content)和附件(attachments)为准，当标题为空时触发AI分析补充其他字段
    */
-  async createLocalContents(records) {
+  async createLocalContents(records, availableFields = null) {
     const stats = { success: 0, failed: 0, details: [] }
 
     for (const record of records) {
@@ -793,7 +848,7 @@ export class SyncService {
           try {
             this.logger.info(`[SyncService] Title or summary is empty, analyzing with AI for record ${record.record_id}...`)
             const input = data.content || ''
-            const aiResult = await analyzeContent(input, null) // 不传入URL，让AI自己提取
+            const aiResult = await analyzeContentSmart(input, null, data.attachments || []) // 使用智能分析，支持图片
 
             if (aiResult) {
               // AI解析的字段用于补充
@@ -828,7 +883,24 @@ export class SyncService {
 
         // 如果AI分析失败或未触发，使用默认值
         if (!data.title || data.title.trim() === '') {
-          data.title = '未命名笔记'
+          // 尝试从内容中提取标题
+          if (data.content && data.content.trim()) {
+            // 从内容中提取第一行或前50个字符作为标题
+            const content = data.content.trim()
+            // 尝试提取【】中的内容作为标题
+            const bracketMatch = content.match(/【([^】]+)】/)
+            if (bracketMatch) {
+              data.title = bracketMatch[1].substring(0, 50)
+            } else {
+              // 取第一行或前50个字符
+              const firstLine = content.split('\n')[0].trim()
+              data.title = firstLine.substring(0, 50) + (firstLine.length > 50 ? '...' : '')
+            }
+          }
+          // 如果仍然为空，才使用默认值
+          if (!data.title || data.title.trim() === '') {
+            data.title = '未命名笔记'
+          }
         }
         if (!data.type) {
           data.type = 'note'
@@ -868,7 +940,8 @@ export class SyncService {
             const tags = (data.tags || []).map(name => ({ name }))
             const recordToUpdate = this.adapter.convertToFeishuRecord(
               { ...data, id: contentId },
-              tags
+              tags,
+              availableFields
             )
 
             await this.adapter.updateRecord(
@@ -878,7 +951,7 @@ export class SyncService {
               recordToUpdate.fields
             )
 
-            this.logger.info(`[SyncService] Successfully backfilled to Feishu: title="${data.title}", type="${data.type}"`)
+            this.logger.info(`[SyncService] Successfully backfilled to Feishu: title="${data.title}", summary="${(data.summary || '').substring(0, 50)}...", type="${data.type}"`)
           } catch (error) {
             this.logger.warn(`[SyncService] Failed to backfill to Feishu: ${error.message}`)
             // 不影响本地创建的成功状态
@@ -916,7 +989,7 @@ export class SyncService {
    * 更新本地内容
    * 策略：以飞书的记录(content)和附件(attachments)为准，其他字段以本地为准
    */
-  async updateLocalContents(records) {
+  async updateLocalContents(records, availableFields = null) {
     const stats = { success: 0, failed: 0, details: [] }
 
     for (const record of records) {
@@ -966,7 +1039,7 @@ export class SyncService {
           try {
             this.logger.info(`[SyncService] Title or summary is empty, analyzing with AI for record ${record.record_id}...`)
             const input = mergedData.content || ''
-            const aiResult = await analyzeContent(input, null)
+            const aiResult = await analyzeContentSmart(input, null, feishuData.attachments || []) // 使用智能分析，支持图片
 
             if (aiResult) {
               // AI分析补充字段
@@ -998,9 +1071,21 @@ export class SyncService {
             }
           } catch (error) {
             this.logger.warn(`[SyncService] AI analysis failed for record ${record.record_id}:`, error.message)
-            // AI失败时使用默认值
+            // AI失败时尝试从内容中提取标题
             if (!mergedData.title || mergedData.title.trim() === '') {
-              mergedData.title = '未命名笔记'
+              if (mergedData.content && mergedData.content.trim()) {
+                const content = mergedData.content.trim()
+                const bracketMatch = content.match(/【([^】]+)】/)
+                if (bracketMatch) {
+                  mergedData.title = bracketMatch[1].substring(0, 50)
+                } else {
+                  const firstLine = content.split('\n')[0].trim()
+                  mergedData.title = firstLine.substring(0, 50) + (firstLine.length > 50 ? '...' : '')
+                }
+              }
+              if (!mergedData.title || mergedData.title.trim() === '') {
+                mergedData.title = '未命名笔记'
+              }
             }
           }
         }
@@ -1015,7 +1100,8 @@ export class SyncService {
             const tags = mergedData.tags.map(name => ({ name }))
             const recordToUpdate = this.adapter.convertToFeishuRecord(
               { ...mergedData, id: feishuData.id },
-              tags
+              tags,
+              availableFields
             )
 
             await this.adapter.updateRecord(
@@ -1025,7 +1111,7 @@ export class SyncService {
               recordToUpdate.fields
             )
 
-            this.logger.info(`[SyncService] Successfully backfilled to Feishu: title="${mergedData.title}", type="${mergedData.type}"`)
+            this.logger.info(`[SyncService] Successfully backfilled to Feishu: title="${mergedData.title}", summary="${(mergedData.summary || '').substring(0, 50)}...", type="${mergedData.type}"`)
           } catch (error) {
             this.logger.warn(`[SyncService] Failed to backfill to Feishu: ${error.message}`)
             // 不影响本地更新的成功状态
@@ -1215,7 +1301,7 @@ export class SyncService {
     // 删除所有内容
     await run('DELETE FROM contents WHERE user_id = ?', [this.userId])
     
-    this.logger.warn(`[SyncService] 本地数据已清空`)
+    this.logger.warn('[SyncService] 本地数据已清空')
   }
 
   /**

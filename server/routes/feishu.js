@@ -211,9 +211,9 @@ router.post('/config/toggle', async (req, res) => {
  */
 router.post('/sync', async (req, res) => {
   try {
-    const { direction = 'both' } = req.body
+    const { direction = 'both', forceUpdate = false } = req.body
 
-    console.log(`[FeishuAPI] Manual sync triggered by user ${req.user.id}, direction: ${direction}`)
+    console.log(`[FeishuAPI] Manual sync triggered by user ${req.user.id}, direction: ${direction}, forceUpdate: ${forceUpdate}`)
 
     // 获取配置
     const config = await queryOne(
@@ -250,7 +250,7 @@ router.post('/sync', async (req, res) => {
     }, logger)
 
     // 异步执行同步
-    syncService.performSync('manual', direction)
+    syncService.performSync('manual', direction, { forceUpdate })
       .then(result => {
         logger.info(`[FeishuAPI] Sync completed for user ${req.user.id}:`, result)
       })

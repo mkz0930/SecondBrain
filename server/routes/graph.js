@@ -18,7 +18,7 @@ router.use(requireUser)
  */
 router.get('/data', async (req, res) => {
   try {
-    const userId = req.user.id;
+    const userId = req.user.id
 
     // 解析查询参数
     const options = {
@@ -27,25 +27,25 @@ router.get('/data', async (req, res) => {
       startDate: req.query.startDate || null,
       endDate: req.query.endDate || null,
       minConnections: parseInt(req.query.minConnections) || 0
-    };
+    }
 
-    logger.info(`Fetching graph data for user ${userId} with options:`, options);
+    logger.info(`Fetching graph data for user ${userId} with options:`, options)
 
-    const graphData = await graphService.getGraphData(userId, options);
+    const graphData = await graphService.getGraphData(userId, options)
 
     res.json({
       success: true,
       data: graphData
-    });
+    })
   } catch (error) {
-    logger.error('Error fetching graph data:', error);
+    logger.error('Error fetching graph data:', error)
     res.status(500).json({
       success: false,
       message: '获取图谱数据失败',
       error: error.message
-    });
+    })
   }
-});
+})
 
 /**
  * 获取节点详情
@@ -53,33 +53,33 @@ router.get('/data', async (req, res) => {
  */
 router.get('/node/:nodeId', async (req, res) => {
   try {
-    const userId = req.user.id;
-    const { nodeId } = req.params;
+    const userId = req.user.id
+    const { nodeId } = req.params
 
-    logger.info(`Fetching node detail for user ${userId}, node ${nodeId}`);
+    logger.info(`Fetching node detail for user ${userId}, node ${nodeId}`)
 
-    const nodeDetail = await graphService.getNodeDetail(userId, nodeId);
+    const nodeDetail = await graphService.getNodeDetail(userId, nodeId)
 
     if (!nodeDetail) {
       return res.status(404).json({
         success: false,
         message: '节点不存在'
-      });
+      })
     }
 
     res.json({
       success: true,
       data: nodeDetail
-    });
+    })
   } catch (error) {
-    logger.error('Error fetching node detail:', error);
+    logger.error('Error fetching node detail:', error)
     res.status(500).json({
       success: false,
       message: '获取节点详情失败',
       error: error.message
-    });
+    })
   }
-});
+})
 
 /**
  * 获取相关节点推荐
@@ -89,27 +89,27 @@ router.get('/node/:nodeId', async (req, res) => {
  */
 router.get('/related/:nodeId', async (req, res) => {
   try {
-    const userId = req.user.id;
-    const { nodeId } = req.params;
-    const limit = parseInt(req.query.limit) || 10;
+    const userId = req.user.id
+    const { nodeId } = req.params
+    const limit = parseInt(req.query.limit) || 10
 
-    logger.info(`Fetching related nodes for user ${userId}, node ${nodeId}, limit ${limit}`);
+    logger.info(`Fetching related nodes for user ${userId}, node ${nodeId}, limit ${limit}`)
 
-    const relatedNodes = await graphService.getRelatedNodes(userId, nodeId, limit);
+    const relatedNodes = await graphService.getRelatedNodes(userId, nodeId, limit)
 
     res.json({
       success: true,
       data: relatedNodes
-    });
+    })
   } catch (error) {
-    logger.error('Error fetching related nodes:', error);
+    logger.error('Error fetching related nodes:', error)
     res.status(500).json({
       success: false,
       message: '获取相关节点失败',
       error: error.message
-    });
+    })
   }
-});
+})
 
 /**
  * 获取图谱统计信息
@@ -117,11 +117,11 @@ router.get('/related/:nodeId', async (req, res) => {
  */
 router.get('/stats', async (req, res) => {
   try {
-    const userId = req.user.id;
+    const userId = req.user.id
 
-    logger.info(`Fetching graph stats for user ${userId}`);
+    logger.info(`Fetching graph stats for user ${userId}`)
 
-    const graphData = await graphService.getGraphData(userId, {});
+    const graphData = await graphService.getGraphData(userId, {})
 
     res.json({
       success: true,
@@ -134,15 +134,15 @@ router.get('/stats', async (req, res) => {
           ? (graphData.edges.length / graphData.nodes.length).toFixed(2)
           : 0
       }
-    });
+    })
   } catch (error) {
-    logger.error('Error fetching graph stats:', error);
+    logger.error('Error fetching graph stats:', error)
     res.status(500).json({
       success: false,
       message: '获取图谱统计失败',
       error: error.message
-    });
+    })
   }
-});
+})
 
 export default router

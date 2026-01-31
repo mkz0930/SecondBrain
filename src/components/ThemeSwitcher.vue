@@ -1,18 +1,27 @@
 <template>
-  <div class="theme-switcher" ref="switcherRef">
+  <div
+    ref="switcherRef"
+    class="theme-switcher"
+  >
     <button
       class="theme-button"
-      @click.stop="togglePanel"
       :title="currentThemeLabel"
+      @click.stop="togglePanel"
     >
       <span class="theme-icon">{{ currentThemeIcon }}</span>
     </button>
 
     <!-- 主题选择面板 -->
     <transition name="fade">
-      <div v-if="showPanel" class="theme-panel" @click.stop>
+      <div
+        v-if="showPanel"
+        class="theme-panel"
+        @click.stop
+      >
         <div class="panel-section">
-          <h3 class="section-title">🌍 环境主题</h3>
+          <h3 class="section-title">
+            🌍 环境主题
+          </h3>
           <div class="theme-grid">
             <button
               v-for="(theme, key) in themeStore.environmentThemes"
@@ -28,7 +37,9 @@
         </div>
 
         <div class="panel-section">
-          <h3 class="section-title">💭 心情主题</h3>
+          <h3 class="section-title">
+            💭 心情主题
+          </h3>
           <div class="theme-grid">
             <button
               v-for="(theme, key) in themeStore.moodThemes"
@@ -44,7 +55,9 @@
         </div>
 
         <div class="panel-section">
-          <h3 class="section-title">🎨 快捷预设</h3>
+          <h3 class="section-title">
+            🎨 快捷预设
+          </h3>
           <div class="preset-grid">
             <button
               v-for="(preset, key) in themeStore.themePresets"
@@ -61,18 +74,18 @@
         <div class="panel-section options-section">
           <label class="option-label">
             <input
-              type="checkbox"
               v-model="themeStore.autoTheme"
+              type="checkbox"
               @change="toggleAutoTheme"
-            />
+            >
             <span>🕐 自动根据时间切换</span>
           </label>
           <label class="option-label">
             <input
-              type="checkbox"
               v-model="themeStore.followSystem"
+              type="checkbox"
               @change="toggleFollowSystem"
-            />
+            >
             <span>💻 跟随系统主题</span>
           </label>
         </div>

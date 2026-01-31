@@ -74,11 +74,11 @@ app.listen(PORT, () => {
   }
 
   // 启动日报生成定时任务
-  startDailyScheduler();
+  startDailyScheduler()
   
   // 自动初始化所有历史日报 (后台运行)
-  logger.info('[DailySummary] Starting background initialization of past summaries...');
+  logger.info('[DailySummary] Starting background initialization of past summaries...')
   dailySummaryService.initializeAll().catch(err => {
-    logger.error('[DailySummary] Initialization failed:', err);
-  });
+    logger.error('[DailySummary] Initialization failed:', err)
+  })
 })

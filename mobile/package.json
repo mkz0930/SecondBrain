@@ -1,0 +1,65 @@
+{
+  "name": "second-brain-mobile",
+  "version": "1.1.0",
+  "description": "Second Brain Android App with Clipboard Monitoring - 外挂大脑移动端",
+  "main": "index.js",
+  "scripts": {
+    "android": "react-native run-android",
+    "start": "react-native start",
+    "test": "jest",
+    "lint": "eslint .",
+    "monitor": "node monitor.js",
+    "performance": "node -e \"require('./src/utils/PerformanceMonitor').default.printReport()\"",
+    "logs": "node -e \"require('./src/utils/Logger').default.printStats()\""
+  },
+  "keywords": [
+    "react-native",
+    "android",
+    "clipboard",
+    "knowledge-management",
+    "second-brain",
+    "外挂大脑"
+  ],
+  "author": "Claude Code",
+  "license": "MIT",
+  "dependencies": {
+    "react": "18.2.0",
+    "react-native": "0.73.2",
+    "@react-native-clipboard/clipboard": "^1.13.2",
+    "@react-navigation/native": "^6.1.9",
+    "@react-navigation/native-stack": "^6.9.17",
+    "react-native-background-actions": "^3.0.0",
+    "react-native-push-notification": "^8.1.1",
+    "react-native-safe-area-context": "^4.8.2",
+    "react-native-screens": "^3.29.0",
+    "react-native-sqlite-storage": "^6.0.1",
+    "@react-native-community/netinfo": "^11.1.0",
+    "@react-native-async-storage/async-storage": "^1.19.0",
+    "axios": "^1.6.5",
+    "zustand": "^4.4.7"
+  },
+  "devDependencies": {
+    "@babel/core": "^7.20.0",
+    "@babel/preset-env": "^7.20.0",
+    "@babel/runtime": "^7.20.0",
+    "@react-native/babel-preset": "^0.73.19",
+    "@react-native/eslint-config": "^0.73.2",
+    "@react-native/metro-config": "^0.73.3",
+    "@react-native/typescript-config": "^0.73.1",
+    "babel-jest": "^29.6.3",
+    "eslint": "^8.19.0",
+    "jest": "^29.6.3",
+    "prettier": "^2.8.8"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/your-username/SecondBrain.git"
+  },
+  "bugs": {
+    "url": "https://github.com/your-username/SecondBrain/issues"
+  },
+  "homepage": "https://github.com/your-username/SecondBrain#readme"
+}
