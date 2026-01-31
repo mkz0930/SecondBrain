@@ -32,6 +32,42 @@ function computeSmartRating({ accessCount, annotationCount, isFavorite, contentL
   return Math.max(0, Math.min(5, Math.round(raw)))
 }
 
+/**
+ * 检查标题是否需要修复（无意义标题）
+ * @param {string} title - 标题
+ * @returns {boolean} 是否需要修复
+ */
+function needsTitleFix(title) {
+  if (!title || title.trim() === '') return true
+
+  const trimmed = title.trim()
+
+  // 检查是否是 URL 开头
+  if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) return true
+
+  // 检查是否是常见的无意义标题
+  const invalidTitles = [
+    '未命名笔记',
+    '未命名',
+    'New Note',
+    '[image]',
+    '无标题',
+    '输入内容缺失',
+    '解析失败',
+    '-'
+  ]
+  if (invalidTitles.includes(trimmed)) return true
+
+  // 检查是否以特定无意义前缀开头
+  const invalidPrefixes = ['#!/bin', '原创 ', '关注前沿']
+  if (invalidPrefixes.some(prefix => trimmed.startsWith(prefix))) return true
+
+  // 检查标题是否过短（少于2个有意义字符）
+  if (trimmed.length < 2) return true
+
+  return false
+}
+
 router.get('/', async (req, res) => {
   try {
     const {
@@ -842,6 +878,30 @@ router.put('/:id', async (req, res) => {
       }
     }
 
+    // 自动修复无意义标题：检查更新后的标题是否需要修复
+    let titleWasFixed = false
+    const currentTitle = title !== undefined ? title : existing.title
+    const currentContent = content !== undefined ? content : existing.content
+    const currentUrl = url !== undefined ? url : existing.url
+
+    if (needsTitleFix(currentTitle) && currentContent) {
+      try {
+        logger.info(`[标题修复] 检测到无意义标题 "${currentTitle}"，开始 AI 分析...`)
+        const aiResult = await analyzeContent(currentContent, currentUrl)
+
+        if (aiResult && aiResult.title && !needsTitleFix(aiResult.title)) {
+          await run(
+            'UPDATE contents SET title = ? WHERE id = ? AND user_id = ?',
+            [aiResult.title, id, req.user.id]
+          )
+          logger.info(`[标题修复] 内容 ${id} 标题已修复: "${aiResult.title}"`)
+          titleWasFixed = true
+        }
+      } catch (titleError) {
+        logger.error(`[标题修复] 内容 ${id} 标题修复失败:`, titleError)
+      }
+    }
+
     if (tags !== undefined) {
       await run('DELETE FROM content_tags WHERE content_id = ?', [id])
 
@@ -862,7 +922,8 @@ router.put('/:id', async (req, res) => {
 
     res.json({
       message: 'Content updated successfully',
-      optimized: contentWasOptimized
+      optimized: contentWasOptimized,
+      titleFixed: titleWasFixed
     })
   } catch (error) {
     console.error('Update content error:', error)
