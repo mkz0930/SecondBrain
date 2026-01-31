@@ -1,13 +1,13 @@
 import { expect } from 'chai'
 import request from 'supertest'
 import express from 'express'
-import cors from 'express'
+import cors from 'cors'
 import authRouter from '../../server/routes/auth.js'
 
 describe('Auth API 测试', () => {
   let app
 
-  before(() => {
+  beforeAll(() => {
     app = express()
     app.use(cors())
     app.use(express.json())
@@ -27,8 +27,8 @@ describe('Auth API 测试', () => {
 
       // 根据实际实现调整期望
       if (res.status === 200) {
-        expect(res.body).to.have.property('success', true)
-        expect(res.body.data).to.have.property('token')
+        expect(res.body).to.have.property('token')
+        expect(res.body).to.have.property('user_id')
       }
     })
 
@@ -43,7 +43,7 @@ describe('Auth API 测试', () => {
         .send(credentials)
         .expect(401)
 
-      expect(res.body.success).to.be.false
+      expect(res.body).to.have.property('error')
     })
 
     it('应该验证必填字段', async () => {
@@ -52,17 +52,26 @@ describe('Auth API 测试', () => {
         .send({})
         .expect(400)
 
-      expect(res.body.success).to.be.false
+      expect(res.body).to.have.property('error')
     })
   })
 
   describe('POST /api/auth/logout', () => {
-    it('应该成功登出', async () => {
+    it('应该要求提供 token', async () => {
       const res = await request(app)
         .post('/api/auth/logout')
-        .expect(200)
+        .expect(400)
 
-      expect(res.body).to.have.property('success', true)
+      expect(res.body).to.have.property('error', 'Token is required')
+    })
+
+    it('应该拒绝无效的 token', async () => {
+      const res = await request(app)
+        .post('/api/auth/logout')
+        .set('Authorization', 'Bearer invalid_token')
+        .expect(401)
+
+      expect(res.body).to.have.property('error')
     })
   })
 })

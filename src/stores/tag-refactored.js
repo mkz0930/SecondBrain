@@ -1,15 +1,14 @@
 import { defineStore } from 'pinia'
-import { ref, computed } from 'vue'
-import api from '../utils/api'
+import { computed } from 'vue'
 import { useAsyncState, useListState } from '../utils/store-helpers'
-import { createCrudApi, handleApiError } from '../utils/api-helpers'
+import { createCrudApi } from '../utils/api-helpers'
 
 const tagApi = createCrudApi('/api/tags')
 
 export const useTagStore = defineStore('tag', () => {
   // 使用辅助工具管理状态
   const { loading, error, execute, clearError } = useAsyncState()
-  const { items: tags, setItems, addItem, updateItem, removeItem, findItem } = useListState()
+  const { items: tags, setItems, addItem, updateItem, removeItem } = useListState()
 
   /**
    * 标签 Map（用于快速查找）
@@ -119,7 +118,7 @@ export const useTagStore = defineStore('tag', () => {
     }
 
     // 不存在则创建
-    return await createTag({ name, color })
+    return createTag({ name, color })
   }
 
   /**

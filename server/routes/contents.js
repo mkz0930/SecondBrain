@@ -525,7 +525,7 @@ router.post('/batch', async (req, res) => {
 
     for (const item of items) {
       try {
-        const { url, timestamp } = item
+        const { url } = item
 
         if (!url) {
           results.push({ success: false, error: 'URL is required', url })
@@ -653,17 +653,17 @@ router.post('/batch', async (req, res) => {
 
 router.post('/', async (req, res) => {
   try {
-    let { type, title, content, url, source, rating, tags = [], attachments = [] } = req.body
+    let { type, title, content, url, source } = req.body
+    const { rating, tags = [], attachments = [] } = req.body
 
     // Auto-Analyze logic
-    let hasUrl = url || (content && /(https?:\/\/[^\s]+)/.test(content))
+    const hasUrl = url || (content && /(https?:\/\/[^\s]+)/.test(content))
 
     // 如果传入的 url 为空，但内容里有 URL，则提取出来作为 url
     if (!url && content) {
       const urlMatch = content.match(/(https?:\/\/[^\s]+)/)
       if (urlMatch) {
         url = urlMatch[0]
-        hasUrl = true
       }
     }
 

@@ -1,7 +1,6 @@
 import express from 'express'
 import crypto from 'crypto'
-import { upsertUserByOpenId, updateUserSession, getUserByUsername, verifyPassword, clearUserSession } from '../models/users.js'
-import { getUserByToken } from '../models/users.js'
+import { upsertUserByOpenId, updateUserSession, getUserByUsername, verifyPassword, clearUserSession, getUserByToken } from '../models/users.js'
 
 const router = express.Router()
 

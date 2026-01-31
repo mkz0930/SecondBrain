@@ -386,7 +386,8 @@ router.post('/batch', asyncHandler(async (req, res) => {
  * 创建新内容
  */
 router.post('/', asyncHandler(async (req, res) => {
-  let { type, title, content, url, source, rating, tags = [], attachments = [] } = req.body
+  let { type, title, url, source } = req.body
+  const { content, rating, tags = [], attachments = [] } = req.body
 
   // 自动分析逻辑
   let hasUrl = url || (content && /(https?:\/\/[^\s]+)/.test(content))

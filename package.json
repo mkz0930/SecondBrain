@@ -8,11 +8,11 @@
     "build": "vite build",
     "preview": "vite preview",
     "server": "node server/index.js",
-    "test": "mocha test/**/*.test.js --timeout 10000 --exit",
-    "test:watch": "mocha test/**/*.test.js --watch",
-    "test:coverage": "c8 npm test",
-    "test:api": "mocha test/api/**/*.test.js --timeout 10000 --exit",
-    "test:services": "mocha test/services/**/*.test.js --timeout 10000 --exit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "test:api": "vitest run test/api",
+    "test:services": "vitest run test/services",
     "lint": "eslint server src --ext .js,.vue",
     "update-requirements": "node scripts/update-requirements.js"
   },
@@ -40,6 +40,7 @@
   },
   "devDependencies": {
     "@vitejs/plugin-vue": "^4.3.4",
+    "@vue/test-utils": "^2.4.6",
     "c8": "^8.0.1",
     "chai": "^4.3.10",
     "chai-http": "^4.4.0",
@@ -48,6 +49,7 @@
     "eslint-plugin-vue": "^9.17.0",
     "mocha": "^10.2.0",
     "supertest": "^6.3.3",
-    "vite": "^4.4.9"
+    "vite": "^4.4.9",
+    "vitest": "^4.0.18"
   }
 }

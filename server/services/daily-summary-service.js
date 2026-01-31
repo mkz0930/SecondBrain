@@ -7,7 +7,7 @@ export class DailySummaryService {
    * @param {string} date YYYY-MM-DD
    */
   async getSummary(date) {
-    return await queryOne('SELECT * FROM daily_summaries WHERE date = ?', [date])
+    return queryOne('SELECT * FROM daily_summaries WHERE date = ?', [date])
   }
 
   /**

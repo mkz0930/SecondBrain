@@ -3,7 +3,7 @@
  * 提供可复用的 store 功能
  */
 
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
 
 /**
  * 创建异步状态管理

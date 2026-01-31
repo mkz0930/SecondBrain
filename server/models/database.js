@@ -46,10 +46,10 @@ async function ensureColumn(database, table, column, ddl) {
 
 async function shouldRebuildTags(database) {
   const columns = await allAsync(database, 'PRAGMA table_info(tags)')
-  if (columns.length == 0) {
+  if (columns.length === 0) {
     return false
   }
-  const hasUserId = columns.some((col) => col.name == 'user_id')
+  const hasUserId = columns.some((col) => col.name === 'user_id')
   if (!hasUserId) {
     return true
   }
@@ -58,7 +58,7 @@ async function shouldRebuildTags(database) {
     if (!idx.unique) continue
     const info = await allAsync(database, `PRAGMA index_info(${idx.name})`)
     const names = info.map((col) => col.name)
-    if (names.length == 2 && names[0] == 'name' && names[1] == 'user_id') {
+    if (names.length === 2 && names[0] === 'name' && names[1] === 'user_id') {
       return false
     }
   }
@@ -67,7 +67,7 @@ async function shouldRebuildTags(database) {
 
 async function rebuildTagsTable(database) {
   const columns = await allAsync(database, 'PRAGMA table_info(tags)')
-  const hasUserId = columns.some((col) => col.name == 'user_id')
+  const hasUserId = columns.some((col) => col.name === 'user_id')
   const userIdSelect = hasUserId ? 'user_id' : 'NULL as user_id'
 
   await runAsync(database, 'ALTER TABLE tags RENAME TO tags_old')

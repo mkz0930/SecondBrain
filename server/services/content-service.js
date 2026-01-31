@@ -96,7 +96,7 @@ async function enrichContents(contents, userId) {
   }
 
   // 并行处理所有内容
-  return await Promise.all(
+  return Promise.all(
     contents.map(content => enrichContent(content, userId))
   )
 }
@@ -108,7 +108,7 @@ async function enrichContents(contents, userId) {
  * @returns {Promise<Object|null>} 内容对象或 null
  */
 async function verifyContentOwnership(contentId, userId) {
-  return await queryOne(
+  return queryOne(
     'SELECT * FROM contents WHERE id = ? AND user_id = ? AND deleted_at IS NULL',
     [contentId, userId]
   )

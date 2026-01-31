@@ -92,7 +92,7 @@ describe('Vue 组件测试', () => {
         type: '随笔'
       }
 
-      const isValid = formData.title && formData.content && formData.type
+      const isValid = !!(formData.title && formData.content && formData.type)
       expect(isValid).to.be.true
     })
 
@@ -103,7 +103,7 @@ describe('Vue 组件测试', () => {
         type: '随笔'
       }
 
-      const isValid = invalidForm.title && invalidForm.content
+      const isValid = !!(invalidForm.title && invalidForm.content)
       expect(isValid).to.be.false
     })
   })

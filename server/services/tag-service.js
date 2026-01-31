@@ -64,7 +64,7 @@ async function attachTagsToContent(contentId, tagNames, userId) {
  * @returns {Promise<Array<Object>>} 标签列表
  */
 async function getContentTags(contentId, userId) {
-  return await query(
+  return query(
     `SELECT t.* FROM tags t
      JOIN content_tags ct ON t.id = ct.tag_id
      WHERE ct.content_id = ? AND t.user_id = ?`,
@@ -89,7 +89,7 @@ async function updateContentTags(contentId, tagNames, userId) {
   logger.info(`Removed all tags from content ${contentId}`)
 
   // 添加新的标签
-  return await attachTagsToContent(contentId, tagNames, userId)
+  return attachTagsToContent(contentId, tagNames, userId)
 }
 
 /**
@@ -141,7 +141,7 @@ async function findOrCreateTag(tagName, userId, color = null) {
  * @returns {Promise<Array<Object>>} 标签列表
  */
 async function getUserTags(userId) {
-  return await query(
+  return query(
     'SELECT * FROM tags WHERE user_id = ? ORDER BY name',
     [userId]
   )
