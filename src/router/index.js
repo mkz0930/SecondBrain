@@ -55,6 +55,12 @@ const routes = [
     name: 'Database',
     component: () => import('../views/DatabaseView.vue'),
     meta: { requiresAuth: true }
+  },
+  {
+    path: '/phone-usage',
+    name: 'PhoneUsage',
+    component: () => import('../views/PhoneUsageView.vue'),
+    meta: { requiresAuth: true }
   }
 ]
 

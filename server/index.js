@@ -13,6 +13,7 @@ import researchRouter from './routes/research.js'
 import graphRouter from './routes/graph.js'
 import databaseRouter from './routes/database.js'
 import uploadRouter from './routes/upload.js'
+import phoneUsageRouter from './routes/phone-usage.js'
 import { initDatabase } from './models/database.js'
 import { ensureDefaultUser, backfillUserOwnership, ensureDefaultAdmin } from './models/users.js'
 import { startSyncScheduler } from './services/sync-scheduler.js'
@@ -57,6 +58,7 @@ app.use('/api/research', researchRouter)
 app.use('/api/graph', graphRouter)
 app.use('/api/database', databaseRouter)
 app.use('/api/upload', uploadRouter)
+app.use('/api/phone-usage', phoneUsageRouter)
 
 app.get('/health', (req, res) => {
   res.json({ status: 'ok' })

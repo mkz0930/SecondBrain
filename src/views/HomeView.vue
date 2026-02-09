@@ -42,6 +42,12 @@
           📊 数据库
         </button>
         <button
+          class="btn-secondary"
+          @click="goToPhoneUsage"
+        >
+          📱 手机看板
+        </button>
+        <button
           class="btn-primary"
           @click="goToNew"
         >
@@ -488,6 +494,10 @@ function goToGraph() {
 
 function goToDatabase() {
   router.push('/database')
+}
+
+function goToPhoneUsage() {
+  router.push('/phone-usage')
 }
 
 function goToDetail(id) {

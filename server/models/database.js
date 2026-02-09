@@ -409,7 +409,57 @@ export async function initDatabase() {
             'CREATE INDEX IF NOT EXISTS idx_research_connections_project ON research_connections(project_id)'
           )
 
-          logger.info('Database initialized successfully (including Feishu sync tables and Research tables)')
+          // 手机使用统计表
+          await runAsync(
+            database,
+            `CREATE TABLE IF NOT EXISTS phone_usage_daily (
+              id INTEGER PRIMARY KEY AUTOINCREMENT,
+              date TEXT NOT NULL UNIQUE,
+              total_minutes INTEGER DEFAULT 0,
+              unlock_count INTEGER DEFAULT 0,
+              device TEXT,
+              raw_report TEXT,
+              created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+            )`
+          )
+
+          await runAsync(
+            database,
+            `CREATE TABLE IF NOT EXISTS phone_usage_apps (
+              id INTEGER PRIMARY KEY AUTOINCREMENT,
+              date TEXT NOT NULL,
+              app_name TEXT NOT NULL,
+              package_name TEXT,
+              category TEXT,
+              minutes INTEGER DEFAULT 0,
+              emoji TEXT,
+              rank INTEGER,
+              UNIQUE(date, app_name)
+            )`
+          )
+
+          await runAsync(
+            database,
+            `CREATE TABLE IF NOT EXISTS phone_usage_categories (
+              id INTEGER PRIMARY KEY AUTOINCREMENT,
+              date TEXT NOT NULL,
+              category TEXT NOT NULL,
+              minutes INTEGER DEFAULT 0,
+              emoji TEXT,
+              UNIQUE(date, category)
+            )`
+          )
+
+          await runAsync(
+            database,
+            'CREATE INDEX IF NOT EXISTS idx_phone_usage_apps_date ON phone_usage_apps(date)'
+          )
+          await runAsync(
+            database,
+            'CREATE INDEX IF NOT EXISTS idx_phone_usage_categories_date ON phone_usage_categories(date)'
+          )
+
+          logger.info('Database initialized successfully (including Feishu sync tables, Research tables, and Phone Usage tables)')
           resolve()
         } catch (err) {
           logger.error('Database initialization error:', err)
